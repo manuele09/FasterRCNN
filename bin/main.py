@@ -1,4 +1,4 @@
-from dataset import RealDataset
+from dataset import *
 from custom_utils import *
 from averager import Averager
 from model import FasterModel
@@ -7,21 +7,11 @@ import torch
 from torch.utils.data.dataset import Dataset
 from torch.utils.data import DataLoader
 
-import intel_extension_for_pytorch as ipex
-
-
-import torchvision
 from torchvision import transforms
-
-from PIL import Image
-from os import path
-import numpy as np
-from PIL import Image
 
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 
-import datetime
 import subprocess
 
 
@@ -36,6 +26,8 @@ subprocess.run(["rm", "-rf", base_path + "/logs"])
 
 transform = transforms.Compose([transforms.ToTensor(), transforms.Resize(( RESIZE_TO, RESIZE_TO), antialias=True)
                                , transforms.Lambda(remove_alpha_channel)])
+
+modify_names_list(base_path + "/real_dataset/train/list.txt", base_path + "/real_dataset/train/list_v2.txt")
 
 dataset = RealDataset(base_path + "/real_dataset/train", base_path + "/real_dataset/train/list_v2.txt", transform=transform)
 

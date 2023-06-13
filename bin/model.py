@@ -5,9 +5,9 @@ from custom_utils import *
 from torch.utils.tensorboard import SummaryWriter
 
 class FasterModel:
-    def __init__(self, base_path, last_epoch=None, last_batch=None):
+    def __init__(self, base_path=None, last_epoch=None, last_batch=None):
 
-        if (self.base_path==None):
+        if (base_path==None):
             self.base_path = "."
         else:
             self.base_path = base_path + "/FasterRCNN"
