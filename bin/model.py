@@ -3,17 +3,21 @@ import torchvision
 import datetime
 from custom_utils import *
 from torch.utils.tensorboard import SummaryWriter
+import subprocess
 
 class FasterModel:
-    def __init__(self, base_path=None, last_epoch=None, last_batch=None):
+    def __init__(self, base_path=".", last_epoch=None, last_batch=None):
 
-        if (base_path==None):
-            self.base_path = "."
-        else:
-            self.base_path = base_path + "/FasterRCNN"
+        
+        subprocess.run(["mkdir", base_path + "/FasterRCNN"])
+        subprocess.run(["mkdir", base_path + "/logs"])
+        subprocess.run(["mkdir", base_path + "/parameters"])
+
+        self.base_path = base_path + "/FasterRCNN"
 
         self.writer = SummaryWriter(base_path + "/logs")
 
+        #ToDo: creare cartella parameters e anche FasterRCNN 
         self.model_path = self.base_path + "/parameters"
 
         #last training epoch and batch

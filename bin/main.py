@@ -41,9 +41,6 @@ full_model = FasterModel(base_path, last_epoch=-1, last_batch=-1)
 
 
 train_loss_hist = Averager()
-
-
-
 for i in range(NUM_EPOCHS):
     full_model.train(dataloader, train_loss_hist)
 
