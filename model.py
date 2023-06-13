@@ -2,11 +2,19 @@ import torch
 import torchvision
 import datetime
 from custom_utils import *
+from torch.utils.tensorboard import SummaryWriter
 
 class FasterModel:
-    def __init__(self, model_path, last_epoch=None, last_batch=None):
+    def __init__(self, base_path, last_epoch=None, last_batch=None):
 
-        self.model_path = model_path + "/model"
+        if (self.base_path==None):
+            self.base_path = "."
+        else:
+            self.base_path = base_path + "/FasterRCNN"
+
+        self.writer = SummaryWriter(base_path + "/logs")
+
+        self.model_path = self.base_path + "/parameters"
 
         #last training epoch and batch
         if (last_epoch==None):
@@ -34,8 +42,8 @@ class FasterModel:
 
         #print(self.last_epoch)
         if (self.last_epoch!=-1 | self.last_batch):
-            diz = torch.load(self.model_path + "_epoch_" + str(self.last_epoch) + "_batch_" + str(self.last_batch) + ".pth")
-            self.model.state_dict = diz['model_state_dict']
+            diz = torch.load(self.model_path + "/epoch_" + str(self.last_epoch) + "_batch_" + str(self.last_batch) + ".pth")
+            self.model.load_state_dict(diz['model_state_dict'])
             #self.optimizer.state_dict = diz['optimizer_state_dict']
             print("loaded")
 
@@ -76,6 +84,8 @@ class FasterModel:
 
             losses = sum(loss for loss in loss_dict.values())
             loss_value = losses.item()
+            self.writer.add_scalar('loss/train', loss_value, global_step=(self.last_epoch + 1)*len(data_loader) + i)
+            self.writer.flush()
             train_loss_hist.send(loss_value)
             print("Loss: " + str(loss_value))
 
@@ -83,7 +93,7 @@ class FasterModel:
             self.optimizer.step()
             
             self.last_batch += 1
-            self.save_model(self.model_path + "_epoch_" + str(self.last_epoch + 1) + "_batch_" + str(self.last_batch) + ".pth")
+            self.save_model(self.model_path + "/epoch_" + str(self.last_epoch + 1) + "_batch_" + str(self.last_batch) + ".pth")
             print("Finished batch " + str(i))
             print("\n")
         end_time = datetime.datetime.now()
