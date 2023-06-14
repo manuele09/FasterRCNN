@@ -8,12 +8,12 @@ import subprocess
 class FasterModel:
     def __init__(self, base_path=".", last_epoch=None, last_batch=None):
 
+        self.base_path = base_path + "/FasterRCNN"
         
-        subprocess.run(["mkdir", base_path + "/FasterRCNN"])
+        subprocess.run(["mkdir", base_path])
         subprocess.run(["mkdir", base_path + "/logs"])
         subprocess.run(["mkdir", base_path + "/parameters"])
 
-        self.base_path = base_path + "/FasterRCNN"
 
         self.writer = SummaryWriter(base_path + "/logs")
 
