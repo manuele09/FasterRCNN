@@ -15,6 +15,23 @@ def remove_alpha_channel(image):
         image = image[:3, :, :]
     return image
 
+def change_extension(filename, new):
+    # Split the filename into name and extension
+    name, extension = filename.rsplit(".", maxsplit=1)
+
+    # Change the extension to ".txt"
+    new_filename = name + new
+    return new_filename
+
+def from_path_to_names(input_file): 
+        #Example of name in input_file: "C:\validation_free\valid\060722-A-3715G-349.jpg"
+        #Desired name: "060722-A-3715G-349.jpg"
+        with open(input_file, "r") as f:
+            file_paths = f.readlines()
+            file_names = [file_path.split("\\")[-1].strip() for file_path in file_paths]
+
+        return file_names
+
     
 def save_loss_plot(OUT_DIR, train_loss, val_loss):
     figure_1, train_ax = plt.subplots()
