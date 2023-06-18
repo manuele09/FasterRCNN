@@ -46,6 +46,10 @@ class RealDataset(Dataset):
         target_dict = {}
         target_dict["boxes"] = torch.tensor(bounding_boxes)
         target_dict["labels"] = torch.tensor(labels)
+        target_dict["image_id"] = torch.tensor([index])
+        target_dict["area"] = (target_dict["boxes"][:, 3] - target_dict["boxes"][:, 1]) * (target_dict["boxes"][:, 2] - target_dict["boxes"][:, 0])
+        target_dict["iscrowd"] = torch.zeros((len(labels),), dtype=torch.int64)
+
 
         return target_dict
 
@@ -55,13 +59,15 @@ class RealDataset(Dataset):
         
         self.images_root = images_root 
         self.images_names = from_path_to_names(path.join(images_root, "list.txt"))
-
+        
         self.transform = transform
 
         self.str_label = ["No Elmet", "Elmet", "Welding Mask", "Ear Protection", "No Gilet", "Gilet", "Person"]
         self.colors = ['red', 'blue', 'green', 'orange', 'purple', 'pink', "brown"]
     
     def __getitem__(self, index):
+        if (index >= len(self.images_names)):
+            return self.__getitem__(index % len(self.images_names))
         try:
             im = Image.open(path.join(self.images_root, self.images_names[index])).convert('RGB')
         except Exception as e:

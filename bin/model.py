@@ -9,7 +9,7 @@ from coco_utils import get_coco_api_from_dataset
 import math
 import sys
 import utils
-import pickle
+import time
 
 class FasterModel:
     def __init__(self, base_path="."):
@@ -21,7 +21,6 @@ class FasterModel:
         #subprocess.run(["mkdir", base_path + "/parameters"])
 
 
-        self.writer = SummaryWriter(base_path + "/logs")
 
         #ToDo: creare cartella parameters e anche FasterRCNN 
         self.model_path = self.base_path + "/parameters"
@@ -39,13 +38,17 @@ class FasterModel:
         self.params = [p for p in self.model.parameters() if p.requires_grad]
         self.optimizer = torch.optim.SGD(self.params, lr=0.001, momentum=0.9, weight_decay=0.0005)
 
+        self.metric_logger = utils.MetricLogger(delimiter="  ")
+        self.metric_logger.add_meter("lr", utils.SmoothedValue(window_size=1, fmt="{value:.6f}"))
+
 
 
     
     def train(self, data_loader, print_freq, scaler=None, save_freq=None):
+        self.writer = SummaryWriter(self.base_path + "/logs", flush_secs=10, purge_step=self.last_batch + 1)
+
+
         self.model.train()
-        self.metric_logger = utils.MetricLogger(delimiter="  ")
-        self.metric_logger.add_meter("lr", utils.SmoothedValue(window_size=1, fmt="{value:.6f}"))
         header = f"Epoch: [{self.epoch}]"
 
         lr_scheduler = None
@@ -57,9 +60,11 @@ class FasterModel:
                 self.optimizer, start_factor=warmup_factor, total_iters=warmup_iters
             )
         batches_since_last_save = 0
-        for batch_idx, (images, targets) in enumerate(self.metric_logger.log_every(data_loader, print_freq, header)):
+        for batch_idx, (images, targets) in enumerate(self.metric_logger.log_every(data_loader, print_freq, header, resume_index=self.last_batch)):
 
             if batch_idx <= self.last_batch:
+                if lr_scheduler is not None:
+                    lr_scheduler.step()
                 continue
 
             images = list(image.to(self.device) for image in images)
@@ -73,6 +78,9 @@ class FasterModel:
             losses_reduced = sum(loss for loss in loss_dict_reduced.values())
 
             loss_value = losses_reduced.item()
+
+            self.writer.add_scalar('loss/train', loss_value, global_step=batch_idx)
+            self.writer.flush()
 
             if not math.isfinite(loss_value):
                 print(f"Loss is {loss_value}, stopping training")
@@ -105,6 +113,8 @@ class FasterModel:
         self.save_model()
         self.epoch += self.epoch + 1
         self.last_batch = -1
+        self.metric_logger = utils.MetricLogger(delimiter="  ")
+        self.metric_logger.add_meter("lr", utils.SmoothedValue(window_size=1, fmt="{value:.6f}"))
         return self.metric_logger
 
 
@@ -112,17 +122,83 @@ class FasterModel:
         torch.save({
                     'epoch': self.epoch,
                     'last_batch': self.last_batch,
-                    'metric_logger': self.metric_logger,
                     'model_state_dict': self.model.state_dict(),
                     'optimizer_state_dict': self.optimizer.state_dict(),
+                    'metric_logger': {'meters': self.metric_logger.meters, 'iter_time': self.metric_logger.iter_time, 'data_time': self.metric_logger.data_time},
                     }, self.model_path + "/epoch_" + str(self.epoch) + "_batch_" + str(self.last_batch) + ".pth")
+       
+        # with open(self.model_path + "/metric_logger_epoch_" + str(self.epoch) + "_batch_" + str(self.last_batch) + ".pickle", "wb") as outfile:
+        #     pickle.dump(self.metric_logger.meters, outfile)
+         
+
         print(f"Model saved at epoch {self.epoch} and batch {self.last_batch}")
         
     def load_model(self, epoch, last_batch):
         self.epoch = epoch
         self.last_batch = last_batch
-        diz = torch.load(self.model_path + "/epoch_" + str(self.epoch) + "_batch_" + str(self.last_batch) + ".pth", pickle_module=pickle)
-        self.metric_logger = diz['metric_logger']
+        diz = torch.load(self.model_path + "/epoch_" + str(self.epoch) + "_batch_" + str(self.last_batch) + ".pth")
         self.model.load_state_dict(diz['model_state_dict'])
-        self.optimizer.state_dict = diz['optimizer_state_dict']
+        self.optimizer.load_state_dict = diz['optimizer_state_dict']
+
+        self.metric_logger.meters = diz['metric_logger']['meters']
+        self.metric_logger.iter_time = diz['metric_logger']['iter_time']
+        self.metric_logger.data_time = diz['metric_logger']['data_time']
+
+        # with open(self.model_path + "/metric_logger_epoch_" + str(self.epoch) + "_batch_" + str(self.last_batch) + ".pickle", "rb") as infile:
+        #     self.metric_logger.meters = pickle.load(infile)
         print(f"Model loaded at epoch {self.epoch} and batch {self.last_batch}")
+    
+    @torch.inference_mode()
+    def evaluate(self, data_loader):
+        n_threads = torch.get_num_threads()
+        # FIXME remove this and make paste_masks_in_image run on the GPU
+        torch.set_num_threads(1)
+        cpu_device = torch.device("cpu")
+        self.model.eval()
+        metric_logger = utils.MetricLogger(delimiter="  ")
+        header = "Test:"
+
+        coco = get_coco_api_from_dataset(data_loader.dataset)
+        iou_types = self._get_iou_types()
+        coco_evaluator = CocoEvaluator(coco, iou_types)
+
+        for images, targets in metric_logger.log_every(data_loader, 100, header):
+            images = list(img.to(self.device) for img in images)
+
+            if torch.cuda.is_available():
+                torch.cuda.synchronize()
+            model_time = time.time()
+            outputs = self.model(images)
+
+            outputs = [{k: v.to(cpu_device) for k, v in t.items()} for t in outputs]
+            model_time = time.time() - model_time
+
+            res = {target["image_id"].item(): output for target, output in zip(targets, outputs)}
+            evaluator_time = time.time()
+            coco_evaluator.update(res)
+            evaluator_time = time.time() - evaluator_time
+            metric_logger.update(model_time=model_time, evaluator_time=evaluator_time)
+
+        # gather the stats from all processes
+        metric_logger.synchronize_between_processes()
+        print("Averaged stats:", metric_logger)
+        coco_evaluator.synchronize_between_processes()
+
+        # accumulate predictions from all images
+        coco_evaluator.accumulate()
+        coco_evaluator.summarize()
+        torch.set_num_threads(n_threads)
+        return coco_evaluator
+
+    def _get_iou_types(self):
+        model_without_ddp = self.model
+        if isinstance(self.model, torch.nn.parallel.DistributedDataParallel):
+            model_without_ddp = self.model.module
+        iou_types = ["bbox"]
+        if isinstance(model_without_ddp, torchvision.models.detection.MaskRCNN):
+            iou_types.append("segm")
+        if isinstance(model_without_ddp, torchvision.models.detection.KeypointRCNN):
+            iou_types.append("keypoints")
+        return iou_types
+
+    

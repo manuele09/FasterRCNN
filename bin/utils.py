@@ -13,6 +13,8 @@ class SmoothedValue:
     window or the global series average.
     """
 
+    #windows_size: sliding window used for smoothing
+    #fmt: format to use for representing the smoothed value
     def __init__(self, window_size=20, fmt=None):
         if fmt is None:
             fmt = "{median:.4f} ({global_avg:.4f})"
@@ -21,6 +23,7 @@ class SmoothedValue:
         self.count = 0
         self.fmt = fmt
 
+    #adds the new value to the total
     def update(self, value, n=1):
         self.deque.append(value)
         self.count += n
@@ -112,8 +115,13 @@ def reduce_dict(input_dict, average=True):
 
 class MetricLogger:
     def __init__(self, delimiter="\t"):
+        # Defaultdict is a sub-class of the dictionary class that returns a dictionary-like object. 
+        # Defaultdict never raises a KeyError. It provides a default value for the key that does not exists.
+        # In this case it will return a SmoothedValue object.
         self.meters = defaultdict(SmoothedValue)
         self.delimiter = delimiter
+        self.iter_time = SmoothedValue(fmt="{avg:.4f}")
+        self.data_time = SmoothedValue(fmt="{avg:.4f}")
 
     def update(self, **kwargs):
         for k, v in kwargs.items():
@@ -142,14 +150,13 @@ class MetricLogger:
     def add_meter(self, name, meter):
         self.meters[name] = meter
 
-    def log_every(self, iterable, print_freq, header=None):
+    def log_every(self, iterable, print_freq, header=None, resume_index=-1):
         i = 0
         if not header:
             header = ""
         start_time = time.time()
         end = time.time()
-        iter_time = SmoothedValue(fmt="{avg:.4f}")
-        data_time = SmoothedValue(fmt="{avg:.4f}")
+        
         space_fmt = ":" + str(len(str(len(iterable)))) + "d"
         if torch.cuda.is_available():
             log_msg = self.delimiter.join(
@@ -168,36 +175,40 @@ class MetricLogger:
                 [header, "[{0" + space_fmt + "}/{1}]", "eta: {eta}", "{meters}", "time: {time}", "data: {data}"]
             )
         MB = 1024.0 * 1024.0
-        for obj in iterable:
-            data_time.update(time.time() - end)
+        for idx, obj in enumerate(iterable):
+            self.data_time.update(time.time() - end)
             yield obj
-            iter_time.update(time.time() - end)
+            self.iter_time.update(time.time() - end)
             if i % print_freq == 0 or i == len(iterable) - 1:
-                eta_seconds = iter_time.global_avg * (len(iterable) - i)
+                eta_seconds = self.iter_time.global_avg * (len(iterable) - i)
                 eta_string = str(datetime.timedelta(seconds=int(eta_seconds)))
-                if torch.cuda.is_available():
-                    print(
-                        log_msg.format(
-                            i,
-                            len(iterable),
-                            eta=eta_string,
-                            meters=str(self),
-                            time=str(iter_time),
-                            data=str(data_time),
-                            memory=torch.cuda.max_memory_allocated() / MB,
+                if i > resume_index:
+                    if torch.cuda.is_available():
+                        print(
+                            log_msg.format(
+                                i,
+                                len(iterable),
+                                eta=eta_string,
+                                meters=str(self),
+                                time=str(self.iter_time),
+                                data=str(self.data_time),
+                                memory=torch.cuda.max_memory_allocated() / MB,
+                            )
                         )
-                    )
-                else:
-                    print(
-                        log_msg.format(
-                            i, len(iterable), eta=eta_string, meters=str(self), time=str(iter_time), data=str(data_time)
+                    else:
+                        print(
+                            log_msg.format(
+                                i, len(iterable), eta=eta_string, meters=str(self), time=str(self.iter_time), data=str(self.data_time)
+                            )
                         )
-                    )
             i += 1
             end = time.time()
         total_time = time.time() - start_time
         total_time_str = str(datetime.timedelta(seconds=int(total_time)))
         print(f"{header} Total time: {total_time_str} ({total_time / len(iterable):.4f} s / it)")
+
+        self.iter_time = SmoothedValue(fmt="{avg:.4f}")
+        self.data_time = SmoothedValue(fmt="{avg:.4f}") #resetting for the next epoch
 
 
 def collate_fn(batch):

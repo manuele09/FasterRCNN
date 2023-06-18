@@ -13,6 +13,7 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 
 import subprocess
+import sys
 
 # https://github.com/cocodataset/cocoapi/tree/master/
 # cd coco/PythonAPI
@@ -41,15 +42,17 @@ dataset = RealDataset(base_path + "/real_dataset/train", transform=transform)
 
 dataloader = DataLoader(dataset, batch_size=BATCH_SIZE, num_workers=NUM_WORKERS, collate_fn=collate_fn)
 
+
+
 model = FasterModel(base_path)
-model.load_model(0, 1)
+model.load_model(0, 7)
+
+model.evaluate(dataloader)
 
 
-lr_scheduler = torch.optim.lr_scheduler.StepLR(model.optimizer, step_size=3, gamma=0.1)
+# for i in range(NUM_EPOCHS):
+#     model.train(dataloader, 1, save_freq=1)
 
-for i in range(NUM_EPOCHS):
-    model.train(dataloader, 1, save_freq=1)
-    lr_scheduler.step()
 
 
 
