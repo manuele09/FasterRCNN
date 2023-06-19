@@ -111,7 +111,7 @@ class FasterModel:
             
             del images
             del targets
-            torch.cuda.empy_cache()
+            torch.cuda.empty_cache()
 
 
         self.save_model()
