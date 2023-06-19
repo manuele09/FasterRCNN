@@ -108,6 +108,11 @@ class FasterModel:
                 if batches_since_last_save >= save_freq:
                     self.save_model()
                     batches_since_last_save = 0   
+            
+            del images
+            del targets
+            torch.cuda.empy_cache()
+
 
         self.save_model()
         self.epoch += self.epoch + 1
