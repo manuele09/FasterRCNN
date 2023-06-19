@@ -9,3 +9,4 @@ prova_gpu.py
 prova.py
 FasterRCNN_Logging
 models_saved
+bin/cocoapi
