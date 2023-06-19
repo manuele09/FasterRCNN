@@ -45,13 +45,13 @@ dataloader = DataLoader(dataset, batch_size=BATCH_SIZE, num_workers=NUM_WORKERS,
 
 
 model = FasterModel(base_path)
-model.load_model(0, 1)
+model.load_model(0, 7)
 
-#model.evaluate(dataloader)
+model.evaluate(dataloader)
 
 
-for i in range(NUM_EPOCHS):
-    model.train(dataloader, print_freq=1, save_freq=1)
+# for i in range(NUM_EPOCHS):
+#     model.train(dataloader, 1, save_freq=1)
 
 
 

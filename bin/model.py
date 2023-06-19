@@ -10,19 +10,20 @@ import math
 import sys
 import utils
 import time
-import os
 
 class FasterModel:
-    def __init__(self, logging_base_path="."):
+    def __init__(self, base_path="."):
 
-        self.logging_base_path = logging_base_path + "/FasterRCNN_Logging"
-        self.tensorboard_logs_path = self.logging_base_path + "/Tensorboard_logs"
-        self.model_params_path = self.logging_base_path + "/Model_parameters"
+        self.base_path = base_path + "/FasterRCNN"
+        
+        #subprocess.run(["mkdir", base_path])
+        #subprocess.run(["mkdir", base_path + "/logs"])
+        #subprocess.run(["mkdir", base_path + "/parameters"])
 
-        if not os.path.exists(self.logging_base_path):
-            os.makedirs(self.logging_base_path)
-            os.makedirs(self.tensorboard_logs_path)
-            os.makedirs(self.model_params_path)
+
+
+        #ToDo: creare cartella parameters e anche FasterRCNN 
+        self.model_path = self.base_path + "/parameters"
 
         self.epoch = 0
         self.last_batch = -1 
@@ -44,7 +45,7 @@ class FasterModel:
 
     
     def train(self, data_loader, print_freq, scaler=None, save_freq=None):
-        self.writer = SummaryWriter(self.tensorboard_logs_path, flush_secs=10, purge_step=self.last_batch + 1)
+        self.writer = SummaryWriter(self.base_path + "/logs", flush_secs=10, purge_step=self.last_batch + 1)
 
 
         self.model.train()
@@ -124,7 +125,7 @@ class FasterModel:
                     'model_state_dict': self.model.state_dict(),
                     'optimizer_state_dict': self.optimizer.state_dict(),
                     'metric_logger': {'meters': self.metric_logger.meters, 'iter_time': self.metric_logger.iter_time, 'data_time': self.metric_logger.data_time},
-                    }, self.model_params_path + "/epoch_" + str(self.epoch) + "_batch_" + str(self.last_batch) + ".pth")
+                    }, self.model_path + "/epoch_" + str(self.epoch) + "_batch_" + str(self.last_batch) + ".pth")
        
         # with open(self.model_path + "/metric_logger_epoch_" + str(self.epoch) + "_batch_" + str(self.last_batch) + ".pickle", "wb") as outfile:
         #     pickle.dump(self.metric_logger.meters, outfile)
@@ -135,7 +136,7 @@ class FasterModel:
     def load_model(self, epoch, last_batch):
         self.epoch = epoch
         self.last_batch = last_batch
-        diz = torch.load(self.model_params_path + "/epoch_" + str(self.epoch) + "_batch_" + str(self.last_batch) + ".pth")
+        diz = torch.load(self.model_path + "/epoch_" + str(self.epoch) + "_batch_" + str(self.last_batch) + ".pth")
         self.model.load_state_dict(diz['model_state_dict'])
         self.optimizer.load_state_dict = diz['optimizer_state_dict']
 
