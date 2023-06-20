@@ -8,9 +8,30 @@ from PIL import Image
 
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
+import os
 
 from custom_utils import change_extension, from_path_to_names
 
+#takes as input a list_file, containing the paths of the images.
+#modify the paths in the list_file, in order to mantain n_dirs_to_mantain directories
+#and adding new_root_path as root.
+
+def modify_list(list_file, n_dirs_to_mantain, new_root_path):
+    #Example of name in input_file: /dataset_1088x612/27_03_19_19_15_32/000/000001.png
+    #n_dirst_to_mantain: 2
+    #new_root_path: /Root
+    #Output name: /Root/27_03_19_19_15_32/000/000001.png
+    new_list = []
+    with open(list_file, "r") as f:
+        file_paths = f.readlines()
+        for i in range(len(file_paths)):
+            dirs, file_name = os.path.split(file_paths[i].replace('\\', os.sep))
+            for j in range(n_dirs_to_mantain):
+                dirs, d = os.path.split(dirs)
+                file_name = os.path.join(d, file_name)
+            file_name = os.path.join(new_root_path, file_name)
+            new_list.append(file_name.strip())
+    return new_list
 
 
 class RealDataset(Dataset):
@@ -22,7 +43,7 @@ class RealDataset(Dataset):
         labels = []
         bounding_boxes = []
 
-        target_path = path.join(self.images_root, change_extension(self.images_names[index], ".txt"))
+        target_path = change_extension(self.images_list[index], ".txt")
         with open(target_path, 'r') as file:
             for line in file:
                 target_str = line.strip().split() #label     x_center  y_center  width     height
@@ -55,10 +76,9 @@ class RealDataset(Dataset):
 
     #images_root: path containg all the images
     #image_list_path: path of the file containing the list of all the images name
-    def __init__(self, images_root, transform=None):
+    def __init__(self, images_list, transform=None):
         
-        self.images_root = images_root 
-        self.images_names = from_path_to_names(path.join(images_root, "list.txt"))
+        self.images_list = images_list
         
         self.transform = transform
 
@@ -66,14 +86,14 @@ class RealDataset(Dataset):
         self.colors = ['red', 'blue', 'green', 'orange', 'purple', 'pink', "brown"]
     
     def __getitem__(self, index):
-        if (index >= len(self.images_names)):
-            return self.__getitem__(index % len(self.images_names))
+        if (index >= len(self.images_list)): #DA RIVEDERE
+            return self.__getitem__(index % len(self.images_list))
         try:
-            im = Image.open(path.join(self.images_root, self.images_names[index])).convert('RGB')
+            im = Image.open(self.images_list[index]).convert('RGB')
         except Exception as e:
             print(" Exception caught: skipping dataset element.")
-            print(f"Error reading image {self.images_names[index]}: {e}")
-            del self.images_names[index]
+            print(f"Error reading image {self.images_list[index]}: {e}")
+            del self.images_list[index]
             return self.__getitem__(index)
         
         if self.transform is not None:
@@ -86,14 +106,14 @@ class RealDataset(Dataset):
 
         except Exception as e:
             print("Exception caught: skipping dataset element.")
-            print(f"Error reading target of {self.images_names[index]}: {e}")
-            del self.images_names[index]
+            print(f"Error reading target of {self.images_list[index]}: {e}")
+            del self.images_list[index]
             return self.__getitem__(index)
         
         return im, target
     
     def __len__(self):
-        return len(self.images_names)
+        return len(self.images_list)
     
     def show_bounding(self, index):
         image, targets = self[index]

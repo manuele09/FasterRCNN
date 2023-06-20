@@ -36,9 +36,9 @@ transform = transforms.Compose([transforms.ToTensor()])
 # transform = transforms.Compose([transforms.ToTensor(), transforms.Resize(( RESIZE_TO, RESIZE_TO), antialias=True)
 #                                , transforms.Lambda(remove_alpha_channel)])
 
-
-dataset = RealDataset(base_path + "/real_dataset/train", transform=transform)
-#dataset.show_bounding(54)
+train_list = modify_list(base_path + "/real_dataset/train/list.txt", 1, base_path + "/real_dataset")
+dataset = RealDataset(train_list, transform=transform)
+dataset.show_bounding(1)
 
 dataloader = DataLoader(dataset, batch_size=BATCH_SIZE, num_workers=NUM_WORKERS, collate_fn=collate_fn)
 
@@ -56,11 +56,6 @@ model.evaluate(dataloader)
 
 
 
-
-
-
-
-
-
+#14:37:30
 
 

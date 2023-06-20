@@ -115,7 +115,7 @@ class FasterModel:
 
 
         self.save_model()
-        self.epoch += self.epoch + 1
+        self.epoch += 1
         self.last_batch = -1
         self.metric_logger = utils.MetricLogger(delimiter="  ")
         self.metric_logger.add_meter("lr", utils.SmoothedValue(window_size=1, fmt="{value:.6f}"))
@@ -183,6 +183,10 @@ class FasterModel:
             evaluator_time = time.time() - evaluator_time
             metric_logger.update(model_time=model_time, evaluator_time=evaluator_time)
 
+            del images
+            del targets
+            torch.cuda.empty_cache()
+            
         # gather the stats from all processes
         metric_logger.synchronize_between_processes()
         print("Averaged stats:", metric_logger)
