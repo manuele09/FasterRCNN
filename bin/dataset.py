@@ -96,7 +96,7 @@ class RealDataset(Dataset):
         if self.download_dataset:
             if dirs_ids is None:
                 print("Error: dirs_ids is None")
-                sys.exit()
+                return #should be exit but is not defined in sagemaker
             self.downloaded_dirs = self.scan_base_path()
             self.dirs_ids = dirs_ids
 
@@ -133,7 +133,6 @@ class RealDataset(Dataset):
 
             self.downloaded_dirs = [current_dir]
 
-            sys.exit()
 
 
         if (index >= len(self.images_list)): #DA RIVEDERE
