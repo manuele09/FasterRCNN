@@ -113,7 +113,7 @@ class RealDataset(Dataset):
             #verifico se la cartella current_dir è presente o no
             if current_dir not in self.downloaded_dirs:
                 #Scarico il file zip
-                print(f"Downloading {current_dir}...")
+                print(f"Downloading {current_dir}.zip ...")
                 file_id = self.dirs_ids[current_dir]
                 file_name = os.path.join(self.base_path, current_dir) + ".zip"
                 download_url = f"https://studentiunict-my.sharepoint.com/:u:/g/personal/cnnmnl01r09m088w_studium_unict_it/{file_id}?download=1"
@@ -125,7 +125,7 @@ class RealDataset(Dataset):
                 #Estrapolo il file zip
                 print(f"Unzipping {current_dir}.zip ...")
                 with zipfile.ZipFile(file_name, 'r') as zip_ref:
-                    zip_ref.extractall(self.base_path)
+                    zip_ref.extractall(os.path.join(self.base_path, current_dir))
                 print("Unzip completed.") 
 
                 #Elimino la zip
