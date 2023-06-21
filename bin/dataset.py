@@ -12,6 +12,7 @@ import os
 import shutil
 import subprocess
 import zipfile
+import sys
 
 from custom_utils import change_extension, from_path_to_names
 
@@ -95,7 +96,7 @@ class RealDataset(Dataset):
         if self.download_dataset:
             if dirs_ids is None:
                 print("Error: dirs_ids is None")
-                exit()
+                sys.exit()
             self.downloaded_dirs = self.scan_base_path()
             self.dirs_ids = dirs_ids
 
@@ -132,7 +133,7 @@ class RealDataset(Dataset):
 
             self.downloaded_dirs = [current_dir]
 
-            exit()
+            sys.exit()
 
 
         if (index >= len(self.images_list)): #DA RIVEDERE
