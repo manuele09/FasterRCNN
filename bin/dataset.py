@@ -13,6 +13,7 @@ import shutil
 import subprocess
 import zipfile
 import sys
+import threading
 
 from custom_utils import change_extension, from_path_to_names
 
@@ -88,42 +89,80 @@ class RealDataset(Dataset):
 
     #images_root: path containg all the images
     #image_list_path: path of the file containing the list of all the images name
-    def __init__(self, base_path, images_list=None, list_name=None,  transform=None, download_dataset=False, dirs_ids=None):
+    def __init__(self, base_path, images_list=None, list_file_name=None,  transform=None, download_virtual_dataset=False):
         self.base_path = base_path
-        self.download_dataset = download_dataset
-
+        self.download_virtual_dataset = download_virtual_dataset
         self.images_list = images_list
         self.transform = transform
+        self.lock = threading.Lock()
+
 
         self.str_label = ["No Elmet", "Elmet", "Welding Mask", "Ear Protection", "No Gilet", "Gilet", "Person"]
         self.colors = ['red', 'blue', 'green', 'orange', 'purple', 'pink', "brown"]
-
-        if self.download_dataset:
-            if dirs_ids is None:
-                print("Error: dirs_ids is None")
-                return #should be exit but is not defined in sagemaker
-            self.dirs_ids = dirs_ids
-            if list_name is None:
-                print("Error: dirs_ids is None")
+        self.dirs_ids = {"train.virtual.txt": "ESRgAfYQkchGj4Hjfl_lZLMBoLNTrhkHwPJzYBGsrt4SeA",
+       "valid.virtual.txt": "EXRzg_URR-ZEoYMpYH6W8R4BJWUVq4HMKZe-bvoq8ngUXw",
+       "27_03_19_19_15_32": "EVujRKjyKSJDiQ_8b-46r7sBSoY7yMre_UiHVXy4W3c14w",
+       "27_03_19_19_47_44": "EVTdTdDHT6FPkTAh-zK2JaoBQFNXpsHJfiKtOlxlga5dDQ",
+       "27_03_19_20_16_23":  "EZnnM9VW7qxCpuOoMd3DD70BTxf3qTUSzSFo1ItAcpzvVQ",
+       "27_03_19_20_43_51": "EbFMsp8MSwlDgXkS0EguZkwBhw5DCgi2nO3yTtjl426WMQ",
+       "27_03_19_21_09_00": "EUTcg4dh9G1Ji1QSQ34MTIIBBavjnOQYRAA0RsEx_Z4VqA",
+       "29_03_19_03_39_42": "ESDmLETIsShNlE2oEJI1D2QB2trOJCjWsJsc3O-dssu_ag",
+       "29_03_19_04_06_35": "EdoGdVHUsLRJiMxh0a1VBBEBrYeC2eX0Elvs1Jhq_b2gmw",
+       "29_03_19_04_34_54": "Ed4ZNXeY9a9HgY4T6MJJ7f0ByGK1EwbQmTxI8m6ijxDiBQ",
+       "29_03_19_05_01_34": "Ee9SYf6BuCxJiCpNbdXMTxoBEVHGA66aSHfsdmS_leHswQ",
+       "29_03_19_05_27_16": "Ed5KYH5YpX9BuS-5L4XDI9UBslYiXpRFs_UR8G_lBeQZzA",
+       "29_03_19_05_51_06": "EUi2CAMAvChJhPgQ0WNZGSoBGkuF0RQtD-4JXkhdJgNrEg",
+       "29_03_19_06_18_10": "EVnFqP7dx4VDnQ8XhiCa3W8B7VnESrnCYDghjrfGWU6xYQ",
+       "29_03_19_06_49_23": "EZI6BtKNLKNPqvXrH1WV-yQBX8KE-aAYfxaYqAZwT2048A",
+       "29_03_19_07_14_43": "EcrxUMpbayNLgMFvdH99rcQBCPedcn6QKavKeecMAPOGDA",
+       "29_03_19_07_45_24": "ERFr_pA4MRRIiemPRdMcoJwBuRjXdg62UYsgm9NAR1dDOA",
+       "29_03_19_08_12_28": "EWltsNr9UHdJsiC88YFQdmoB76AwtIFy6wea4oHZMRCNTw",
+       "29_03_19_08_39_27": "EaQFe7l04HxMpqzaYsxxQdUBLAtAKfESjI5jHgOg8Yz8PQ",
+       "29_03_19_09_05_50": "EZC6nbmQuz5OjFBKaTIoeRMBDSrtW6bNG-HNbB-F8DV3_Q",
+       "29_03_19_11_23_30": "EdDkwmpyxRpBqyCRbW3_75ABg4rPucqeMs-3afhEkEE7fA",
+       "29_03_19_11_48_52": "ERkF1A2H8NZPrIXx2EIZcyoBw10Q9k2QG2gIzvmMnxUXTA",
+       "29_03_19_12_11_24": "Ec51v9AKNTRPo1DI-YFLkrwBZptCy3XcPG-zZXHGHPYwsA",
+       "29_03_19_12_36_41": "ET5MAzxCLdRApgu-Yd4QSIsBIUIK2ZO1gc5VCgPpyC2hVw",
+       "29_03_19_13_16_22": "Eb6aTsYREItFrJb0kcbIbYEBWNHdlihTP7GTKOdgXC18Hg",
+       "29_03_19_13_40_24": "Ec8f5L291nBDkB6Z8XdbuZQB5fzAu9Rvb_3b0j8331ihNg",
+       "29_03_19_14_05_16": "EW0WMufbzspGim2ktl1jRosBwgeVU351rGaNTe4uy4VgRw",
+       "29_03_19_14_34_53": "EShJyt7_ELVOjxxmje0tYK8BImM7XYIlnLXaBZLm0f5iCQ",
+       "29_03_19_15_07_02": "EfjQr--s7u1NrkA13UNBZisBk596wqeFYFAr9qshRuefsw",
+       "29_03_19_15_39_29": "EXxy-jkcuLtHpR5vWX2y3ukBctruwvFqO9KNb2PshLSuow",
+       "29_03_19_16_06_55": "EQ1oEyDMhs9Au2AtS9wyIU4BnWKFxAg6UJyL8oD8I-8y2w",
+       "29_03_19_16_29_52": "EdKf-fzUaxxPk8wE_lykl2wBkec_JR4gjEtXpjdzuIl3Qw"}
+        
+        if self.download_virtual_dataset:
+            if list_file_name is None:
+                print("Error: list_file_name is None")
                 return #should be exit but is not defined in sagemaker
             
+            #create the base_path if not exists, and download the list_file
             if not os.path.exists(self.base_path):
                 print("Creating base_path")
                 os.makedirs(self.base_path)
-                self.download_and_extract(list_name)
-            if find_path(list_name, self.base_path) is None:
-                self.download_and_extract(list_name)
+                self.download_and_extract(list_file_name)
+            #if the base_path exists but the list_file doesn't, download it
+            if find_path(list_file_name, self.base_path) is None:
+                self.download_and_extract(list_file_name)
 
-            #a questo punto siamo sicuri che la lista esiste
-            self.images_list = modify_list(find_path(list_name, self.base_path), 3, self.base_path)
+            #finds the list file path, modifies the relative paths in the list.
+            self.images_list = modify_list(find_path(list_file_name, self.base_path), 3, self.base_path)
             
+            #it is the path that will contain all the folders of the virtual dataset: 27_03_19_19_15_32, 27_03_19_19_47_44, ...
             self.full_path = os.path.join(self.base_path, self.images_list[0].split(os.path.sep)[-4])
-        
+            #usually it is base_path + "/dataset_1088x612"
+            
+        #Now we should have a complete images_list, that may be generated by the downloaded file
+        #or given as input by the user
         if self.images_list is None:
             print("Error: images_list is None")
-            return
+            return #should be exit 
 
+    #Downloads the file_name.zip from the shared link, extracts it in the base_path
+    #and deletes the zip file to save space
     def download_and_extract(self, file_name):
+        #Download the zip
         print(f"Downloading {file_name}.zip ...")
         file_id = self.dirs_ids[file_name]
         out_path = os.path.join(self.base_path, file_name) + ".zip"
@@ -132,54 +171,62 @@ class RealDataset(Dataset):
         subprocess.run(command, shell=True)
         print("Download completed.")
 
-        #Estrapolo il file zip
+        #Extract the zip
         print(f"Unzipping {file_name}.zip ...")
         with zipfile.ZipFile(out_path, 'r') as zip_ref:
             zip_ref.extractall(self.base_path)
         print("Unzip completed.") 
 
-        #Elimino la zip
+        #Delete the zip
         os.remove(out_path)    
 
 
     def __getitem__(self, index):
-        if self.download_dataset:
-            #Estraggo il nome della sottorcartella che contiene l'immagine
-            current_dir = self.images_list[index].split(os.path.sep)[-3] 
-            self.downloaded_dirs = scan_path(self.full_path)
+        if self.download_virtual_dataset:
 
-            #rimuovo tutte le cartelle in eccesso
-            trovato = 0
+            #Find the directory that contains the image
+            current_dir = self.images_list[index].split(os.path.sep)[-3] 
+
+            self.lock.acquire()
+            #Scan the full_path to find all the downloaded directories
+            self.downloaded_dirs = scan_path(self.full_path)
+            #Remove all the directories that are not the current_dir.
+            current_dir_downloaded = False
             for i in range(len(self.downloaded_dirs)):
                 if os.path.basename(self.downloaded_dirs[i]) != current_dir:
                     print(f"Removing {self.downloaded_dirs[i]}")
-                    shutil.rmtree(self.downloaded_dirs[i])
+                    shutil.rmtree(self.downloaded_dirs[i]) #aggiungere opzione per non rimuovere
                 else:
-                    trovato = 1
+                    current_dir_downloaded = True
 
-            #verifico se la cartella current_dir è presente o no
-            if not trovato:
+            #If current_dir is not downloaded, download it
+            if not current_dir_downloaded:
                 self.download_and_extract(current_dir)           
+            self.lock.release()
 
+        #From here is the same if the dataset was downloaded or not
 
-        if (index >= len(self.images_list)): #DA RIVEDERE
+        #Circular indexing to avoid index out of range
+        if (index >= len(self.images_list)): 
             return self.__getitem__(index % len(self.images_list))
         try:
             im = Image.open(self.images_list[index]).convert('RGB')
+        #If the image is corrupted, delete it and return the next one
         except Exception as e:
             print(" Exception caught: skipping dataset element.")
             print(f"Error reading image {self.images_list[index]}: {e}")
             del self.images_list[index]
             return self.__getitem__(index)
         
+        #Apply the transformations
         if self.transform is not None:
             im = self.transform(im)
         
+        #Same strategy as before if target is corrupted
         try:
             target = self.read_target_from_file(index, im.shape[2], im.shape[1])
             if target["boxes"].shape[0] == 0 or target["boxes"].shape[1] != 4:
                 raise Exception("Invalid box format.")
-
         except Exception as e:
             print("Exception caught: skipping dataset element.")
             print(f"Error reading target of {self.images_list[index]}: {e}")

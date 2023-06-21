@@ -23,6 +23,9 @@ class FasterModel:
             os.makedirs(self.logging_base_path)
             os.makedirs(self.tensorboard_logs_path)
             os.makedirs(self.model_params_path)
+            os.makedirs(self.model_params_path + "/All_Epochs")
+
+        self.writer_all_epoch = SummaryWriter(self.tensorboard_logs_path + "/All_Epochs")
 
         self.epoch = 0
         self.last_batch = -1 
@@ -44,7 +47,13 @@ class FasterModel:
 
     
     def train(self, data_loader, print_freq, scaler=None, save_freq=None):
-        self.writer = SummaryWriter(self.tensorboard_logs_path, flush_secs=10, purge_step=self.last_batch + 1)
+
+        if not os.path.exists(self.tensorboard_logs_path + "/Epoch_" + str(self.epoch)):
+            os.makedirs(self.tensorboard_logs_path + "/Epoch_" + str(self.epoch))
+
+        self.writer = SummaryWriter(self.tensorboard_logs_path + "/Epoch_" + str(self.epoch))
+    
+        #self.writer = SummaryWriter(self.tensorboard_logs_path, flush_secs=10, purge_step=self.last_batch + 1)
 
 
         self.model.train()
