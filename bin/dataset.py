@@ -43,10 +43,10 @@ def find_path(name, path):
             return os.path.join(root, name)
     return None
         
+def scan_path(path):
+    dirs = [os.path.join(path, name) for name in os.listdir(path) if os.path.isdir(os.path.join(path, name))]
+    return dirs
 class RealDataset(Dataset):
-    def scan_path(path):
-        dirs = [os.path.join(path, name) for name in os.listdir(path) if os.path.isdir(os.path.join(path, name))]
-        return dirs
 
     #return a dictionary with the following keys: "image", "target".
     def read_target_from_file(self, index, im_width, im_height):
@@ -117,7 +117,7 @@ class RealDataset(Dataset):
             #a questo punto siamo sicuri che la lista esiste
             self.images_list = modify_list(find_path(list_name, self.base_path), 3, self.base_path)
             
-            self.downloaded_dirs = self.scan_path(os.path.join(self.base_path, self.images_list[0].split(os.path.sep)[-4]))
+            self.downloaded_dirs = scan_path(os.path.join(self.base_path, self.images_list[0].split(os.path.sep)[-4]))
         
         if self.images_list is None:
             print("Error: images_list is None")
