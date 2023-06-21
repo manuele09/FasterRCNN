@@ -37,10 +37,15 @@ def modify_list(list_file, n_dirs_to_mantain, new_root_path):
             new_list.append(file_name.strip())
     return new_list
 
-
+def find_path(name, path):
+    for root, dirs, files in os.walk(path):
+        if name in dirs or name in files:
+            return os.path.join(root, name)
+    return None
+        
 class RealDataset(Dataset):
-    def scan_base_path(self):
-        dirs = [name for name in os.listdir(self.base_path) if os.path.isdir(os.path.join(self.base_path, name))]
+    def scan_path(path):
+        dirs = [os.path.join(path, name) for name in os.listdir(path) if os.path.isdir(os.path.join(path, name))]
         return dirs
 
     #return a dictionary with the following keys: "image", "target".
@@ -83,7 +88,7 @@ class RealDataset(Dataset):
 
     #images_root: path containg all the images
     #image_list_path: path of the file containing the list of all the images name
-    def __init__(self, images_list, base_path, transform=None, download_dataset=False, dirs_ids=None):
+    def __init__(self, base_path, images_list=None, list_name=None,  transform=None, download_dataset=False, dirs_ids=None):
         self.base_path = base_path
         self.download_dataset = download_dataset
 
@@ -97,8 +102,45 @@ class RealDataset(Dataset):
             if dirs_ids is None:
                 print("Error: dirs_ids is None")
                 return #should be exit but is not defined in sagemaker
-            self.downloaded_dirs = self.scan_base_path()
             self.dirs_ids = dirs_ids
+            if list_name is None:
+                print("Error: dirs_ids is None")
+                return #should be exit but is not defined in sagemaker
+            
+            if not os.path.exists(self.base_path):
+                print("Creating base_path")
+                os.makedirs(self.base_path)
+                self.download_and_extract(list_name)
+            if find_path(list_name, self.base_path) is None:
+                self.download_and_extract(list_name)
+
+            #a questo punto siamo sicuri che la lista esiste
+            self.images_list = modify_list(find_path(list_name, self.base_path), 3, self.base_path)
+            
+            self.downloaded_dirs = self.scan_path(os.path.join(self.base_path, self.images_list[0].split(os.path.sep)[-4]))
+        
+        if self.images_list is None:
+            print("Error: images_list is None")
+            return
+
+    def download_and_extract(self, file_name):
+        print(f"Downloading {file_name}.zip ...")
+        file_id = self.dirs_ids[file_name]
+        out_path = os.path.join(self.base_path, file_name) + ".zip"
+        download_url = f"https://studentiunict-my.sharepoint.com/:u:/g/personal/cnnmnl01r09m088w_studium_unict_it/{file_id}?download=1"
+        command = f"wget -c --no-check-certificate -O {out_path} {download_url} > /dev/null 2>&1"
+        subprocess.run(command, shell=True)
+        print("Download completed.")
+
+        #Estrapolo il file zip
+        print(f"Unzipping {file_name}.zip ...")
+        with zipfile.ZipFile(out_path, 'r') as zip_ref:
+            zip_ref.extractall(self.base_path)
+        print("Unzip completed.") 
+
+        #Elimino la zip
+        os.remove(out_path)    
+
 
     def __getitem__(self, index):
         if self.download_dataset:
@@ -108,28 +150,11 @@ class RealDataset(Dataset):
             #rimuovo tutte le cartelle in eccesso
             for i in range(len(self.downloaded_dirs)):
                 if self.downloaded_dirs[i] != current_dir:
-                    shutil.rmtree(os.path.join(self.base_path, self.downloaded_dirs[i]))
+                    shutil.rmtree(self.downloaded_dirs[i])
 
             #verifico se la cartella current_dir è presente o no
             if current_dir not in self.downloaded_dirs:
-                #Scarico il file zip
-                print(f"Downloading {current_dir}.zip ...")
-                file_id = self.dirs_ids[current_dir]
-                file_name = os.path.join(self.base_path, current_dir) + ".zip"
-                download_url = f"https://studentiunict-my.sharepoint.com/:u:/g/personal/cnnmnl01r09m088w_studium_unict_it/{file_id}?download=1"
-                command = f"wget -c --no-check-certificate -O {file_name} {download_url} > /dev/null 2>&1"
-                print(command)
-                subprocess.run(command, shell=True)
-                print("Download completed.")
-
-                #Estrapolo il file zip
-                print(f"Unzipping {current_dir}.zip ...")
-                with zipfile.ZipFile(file_name, 'r') as zip_ref:
-                    zip_ref.extractall(os.path.join(self.base_path, current_dir))
-                print("Unzip completed.") 
-
-                #Elimino la zip
-                os.remove(file_name)           
+                self.download_and_extract(current_dir)           
 
             self.downloaded_dirs = [current_dir]
 

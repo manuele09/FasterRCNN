@@ -34,18 +34,19 @@ base_path = ".."
 # list_path = image_base_path + "/train/list.txt"
 #dir_to_mantain = 1
 
-image_base_path = base_path + "/virtual_dataset/dataset_1088x612"
+image_base_path = base_path + "/virtual_dataset"
 list_path = image_base_path + "/train.virtual.txt"
 dir_to_mantain = 2
 
 transform = transforms.Compose([transforms.ToTensor()])
 
-train_list = modify_list(list_path, dir_to_mantain, image_base_path)
-print(train_list[0])
+#train_list = modify_list(list_path, dir_to_mantain, image_base_path)
+#print(train_list[0])
 
-diz = {"27_03_19_19_15_32": "EVujRKjyKSJDiQ_8b-46r7sBSoY7yMre_UiHVXy4W3c14w"}
-dataset = RealDataset(train_list, image_base_path, transform=transform, download_dataset=True, dirs_ids=diz)
-dataset.show_bounding(1)
+diz = {"train.virtual.txt": "ESRgAfYQkchGj4Hjfl_lZLMBoLNTrhkHwPJzYBGsrt4SeA", 
+       "27_03_19_19_15_32": "EVujRKjyKSJDiQ_8b-46r7sBSoY7yMre_UiHVXy4W3c14w"}
+dataset = RealDataset(image_base_path, list_name="train.virtual.txt", transform=transform, download_dataset=True, dirs_ids=diz)
+# dataset.show_bounding(1)
 
 # dataloader = DataLoader(dataset, batch_size=BATCH_SIZE, num_workers=NUM_WORKERS, collate_fn=collate_fn)
 
