@@ -9,6 +9,9 @@ from PIL import Image
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 import os
+import shutil
+import subprocess
+import zipfile
 
 from custom_utils import change_extension, from_path_to_names
 
@@ -35,6 +38,9 @@ def modify_list(list_file, n_dirs_to_mantain, new_root_path):
 
 
 class RealDataset(Dataset):
+    def scan_base_path(self):
+        dirs = [name for name in os.listdir(self.base_path) if os.path.isdir(os.path.join(self.base_path, name))]
+        return dirs
 
     #return a dictionary with the following keys: "image", "target".
     def read_target_from_file(self, index, im_width, im_height):
@@ -76,16 +82,59 @@ class RealDataset(Dataset):
 
     #images_root: path containg all the images
     #image_list_path: path of the file containing the list of all the images name
-    def __init__(self, images_list, transform=None):
-        
+    def __init__(self, images_list, base_path, transform=None, download_dataset=False, dirs_ids=None):
+        self.base_path = base_path
+        self.download_dataset = download_dataset
+
         self.images_list = images_list
-        
         self.transform = transform
 
         self.str_label = ["No Elmet", "Elmet", "Welding Mask", "Ear Protection", "No Gilet", "Gilet", "Person"]
         self.colors = ['red', 'blue', 'green', 'orange', 'purple', 'pink', "brown"]
-    
+
+        if self.download_dataset:
+            if dirs_ids is None:
+                print("Error: dirs_ids is None")
+                exit()
+            self.downloaded_dirs = self.scan_base_path()
+            self.dirs_ids = dirs_ids
+
     def __getitem__(self, index):
+        if self.download_dataset:
+            #Estraggo il nome della sottorcartella che contiene l'immagine
+            current_dir = self.images_list[index].split(os.path.sep)[-3] 
+
+            #rimuovo tutte le cartelle in eccesso
+            for i in range(len(self.downloaded_dirs)):
+                if self.downloaded_dirs[i] != current_dir:
+                    shutil.rmtree(os.path.join(self.base_path, self.downloaded_dirs[i]))
+
+            #verifico se la cartella current_dir è presente o no
+            if current_dir not in self.downloaded_dirs:
+                #Scarico il file zip
+                print(f"Downloading {current_dir}...")
+                file_id = self.dirs_ids[current_dir]
+                file_name = os.path.join(self.base_path, current_dir) + ".zip"
+                download_url = f"https://studentiunict-my.sharepoint.com/:u:/g/personal/cnnmnl01r09m088w_studium_unict_it/{file_id}?download=1"
+                command = f"wget -c --no-check-certificate -O {file_name} {download_url} > /dev/null 2>&1"
+                print(command)
+                subprocess.run(command, shell=True)
+                print("Download completed.")
+
+                #Estrapolo il file zip
+                print(f"Unzipping {current_dir}.zip ...")
+                with zipfile.ZipFile(file_name, 'r') as zip_ref:
+                    zip_ref.extractall(self.base_path)
+                print("Unzip completed.") 
+
+                #Elimino la zip
+                os.remove(file_name)           
+
+            self.downloaded_dirs = [current_dir]
+
+            exit()
+
+
         if (index >= len(self.images_list)): #DA RIVEDERE
             return self.__getitem__(index % len(self.images_list))
         try:

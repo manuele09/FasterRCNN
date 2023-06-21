@@ -29,25 +29,32 @@ NUM_EPOCHS = 1 # number of epochs to train for
 NUM_WORKERS = 4
 
 base_path = ".."
-subprocess.run(["rm", "-rf", base_path + "/logs"])
+
+# image_base_path = base_path + "/real_dataset"
+# list_path = image_base_path + "/train/list.txt"
+#dir_to_mantain = 1
+
+image_base_path = base_path + "/virtual_dataset/dataset_1088x612"
+list_path = image_base_path + "/train.virtual.txt"
+dir_to_mantain = 2
 
 transform = transforms.Compose([transforms.ToTensor()])
 
-# transform = transforms.Compose([transforms.ToTensor(), transforms.Resize(( RESIZE_TO, RESIZE_TO), antialias=True)
-#                                , transforms.Lambda(remove_alpha_channel)])
+train_list = modify_list(list_path, dir_to_mantain, image_base_path)
+print(train_list[0])
 
-train_list = modify_list(base_path + "/real_dataset/train/list.txt", 1, base_path + "/real_dataset")
-dataset = RealDataset(train_list, transform=transform)
+diz = {"27_03_19_19_15_32": "EVujRKjyKSJDiQ_8b-46r7sBSoY7yMre_UiHVXy4W3c14w"}
+dataset = RealDataset(train_list, image_base_path, transform=transform, download_dataset=True, dirs_ids=diz)
 dataset.show_bounding(1)
 
-dataloader = DataLoader(dataset, batch_size=BATCH_SIZE, num_workers=NUM_WORKERS, collate_fn=collate_fn)
+# dataloader = DataLoader(dataset, batch_size=BATCH_SIZE, num_workers=NUM_WORKERS, collate_fn=collate_fn)
 
 
-#provadfdsfsdfdsf
-model = FasterModel(base_path)
-model.load_model(0, 7)
+# #provadfdsfsdfdsf
+# model = FasterModel(base_path)
+# model.load_model(0, 7)
 
-model.evaluate(dataloader)
+# model.evaluate(dataloader)
 
 
 # for i in range(NUM_EPOCHS):
