@@ -46,7 +46,7 @@ transform = transforms.Compose([transforms.ToTensor()])
 diz = {"train.virtual.txt": "ESRgAfYQkchGj4Hjfl_lZLMBoLNTrhkHwPJzYBGsrt4SeA", 
        "27_03_19_19_15_32": "EVujRKjyKSJDiQ_8b-46r7sBSoY7yMre_UiHVXy4W3c14w"}
 dataset = RealDataset(image_base_path, list_name="train.virtual.txt", transform=transform, download_dataset=True, dirs_ids=diz)
-# dataset.show_bounding(1)
+dataset.show_bounding(1)
 
 # dataloader = DataLoader(dataset, batch_size=BATCH_SIZE, num_workers=NUM_WORKERS, collate_fn=collate_fn)
 

@@ -117,7 +117,7 @@ class RealDataset(Dataset):
             #a questo punto siamo sicuri che la lista esiste
             self.images_list = modify_list(find_path(list_name, self.base_path), 3, self.base_path)
             
-            self.downloaded_dirs = scan_path(os.path.join(self.base_path, self.images_list[0].split(os.path.sep)[-4]))
+            self.full_path = os.path.join(self.base_path, self.images_list[0].split(os.path.sep)[-4])
         
         if self.images_list is None:
             print("Error: images_list is None")
@@ -146,18 +146,20 @@ class RealDataset(Dataset):
         if self.download_dataset:
             #Estraggo il nome della sottorcartella che contiene l'immagine
             current_dir = self.images_list[index].split(os.path.sep)[-3] 
+            self.downloaded_dirs = scan_path(self.full_path)
 
             #rimuovo tutte le cartelle in eccesso
+            trovato = 0
             for i in range(len(self.downloaded_dirs)):
-                if self.downloaded_dirs[i] != current_dir:
+                if os.path.basename(self.downloaded_dirs[i]) != current_dir:
+                    print(f"Removing {self.downloaded_dirs[i]}")
                     shutil.rmtree(self.downloaded_dirs[i])
+                else:
+                    trovato = 1
 
             #verifico se la cartella current_dir è presente o no
-            if current_dir not in self.downloaded_dirs:
+            if not trovato:
                 self.download_and_extract(current_dir)           
-
-            self.downloaded_dirs = [current_dir]
-
 
 
         if (index >= len(self.images_list)): #DA RIVEDERE
