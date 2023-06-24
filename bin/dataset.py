@@ -225,9 +225,12 @@ class RealDataset(Dataset):
                 self.download_and_extract(current_dir)
             self.ready = True
             print("Dataset ready")
+
+        print("Prima "+ str(index))
         while(self.download_virtual_dataset and not self.ready):
             print("Waiting for the main process to download the dataset... " + str(index))
             time.sleep(1)
+        print("Dopo " + str(index))
         # From here is the same if the dataset was downloaded or not
 
         # Circular indexing to avoid index out of range
