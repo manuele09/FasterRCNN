@@ -224,9 +224,9 @@ class RealDataset(Dataset):
             if not current_dir_downloaded:
                 self.download_and_extract(current_dir)
             self.ready = True
-            print("Dataset ready.")
+            print("Dataset ready")
         while(self.download_virtual_dataset and not self.ready):
-            print("Waiting for the main process to download the dataset...")
+            print("Waiting for the main process to download the dataset... " + worker_id)
             time.sleep(1)
         # From here is the same if the dataset was downloaded or not
 
