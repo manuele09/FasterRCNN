@@ -49,7 +49,7 @@ class FasterModel:
             self.device = torch.device("cpu")
 
         self.model = torchvision.models.detection.fasterrcnn_resnet50_fpn(
-            weights='DEFAULT')
+            pretrained=True)
         self.model.to(self.device)
         self.params = [p for p in self.model.parameters() if p.requires_grad]
         self.optimizer = torch.optim.SGD(
