@@ -108,6 +108,8 @@ class RealDataset(Dataset):
         self.images_list = images_list
         self.transform = transform
         self.ready = False
+        self.lock = threading.Lock()
+
 
         self.str_label = ["No Elmet", "Elmet", "Welding Mask",
                           "Ear Protection", "No Gilet", "Gilet", "Person"]
@@ -198,10 +200,15 @@ class RealDataset(Dataset):
 
     def __getitem__(self, index):
 
+
         worker_info = torch.utils.data.get_worker_info()
         if worker_info:
             worker_id = worker_info.id  # beetween 0 and num_workers-1
 
+        self.lock.acquire()
+        print(f"Woker {worker_id}: Acquired lock in {index}")
+        time.sleep(5)
+        self.lock.release()
 
         if self.download_virtual_dataset and worker_id == 0:
 
