@@ -77,15 +77,17 @@ class FasterModel:
             self.runs = self.wandb_api.runs(
                 self.wandb_entity + "/" + self.wandb_project_name)
             self.projects = self.wandb.api.projects(self.wandb_entity)
-            if not any(p.name == self.wandb_project_name for p in self.projects):
-                run = wandb.init(
-                    project=self.wandb_project_name,
-                    config={
-                        "learning_rate": 0.001,
-                        "architecture": "FasterRCNN",
-                        "dataset": "Virtual Dataset (GTA5)"
-                    }
-                )
+            self.project_exists = any(
+                p.name == self.wandb_project_name for p in self.projects)
+            # if not any(p.name == self.wandb_project_name for p in self.projects):
+            #     run = wandb.init(
+            #         project=self.wandb_project_name,
+            #         config={
+            #             "learning_rate": 0.001,
+            #             "architecture": "FasterRCNN",
+            #             "dataset": "Virtual Dataset (GTA5)"
+            #         }
+            #     )
 
     def train(self, data_loader, print_freq, scaler=None, save_freq=None):
 
@@ -100,15 +102,23 @@ class FasterModel:
 
         if (self.upload_to_wandb):
             # Returns the run_id of the current epoch if it exists, else returns None
-            run_id = next((run.id for run in self.runs if run.name == (
-                "Epoch_" + str(self.epoch))), None)
-
-            if (run_id is None):
-                wandb.init(project=self.wandb_project_name,
-                           name=("Epoch_" + str(self.epoch)))
+            if self.project_exists:
+                run_id = next((run.id for run in self.runs if run.name == (
+                    "Epoch_" + str(self.epoch))), None)
+                if (run_id is None):
+                    wandb.init(project=self.wandb_project_name,
+                               name=("Epoch_" + str(self.epoch)))
+                else:
+                    wandb.init(project=self.wandb_project_name,
+                               id=run_id, resume="must")
             else:
                 wandb.init(project=self.wandb_project_name,
-                           id=run_id, resume="must")
+                           name=("Epoch_" + str(self.epoch)),
+                           config={
+                               "learning_rate": 0.001,
+                               "architecture": "FasterRCNN",
+                               "dataset": "Virtual Dataset (GTA5)"
+                           })
 
             wandb.watch(self.model)
 
