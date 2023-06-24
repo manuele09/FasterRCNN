@@ -28,8 +28,9 @@ class FasterModel:
 
         return
 
-    def __init__(self, logging_base_path=".", wand_logging=False, wandb_project_name=None, wandb_entity=None, wandb_api_key="", save_memory=False):
+    def __init__(self, data_loader, logging_base_path=".", wand_logging=False, wandb_project_name=None, wandb_entity=None, wandb_api_key="", save_memory=False):
 
+        self.data_loader = data_loader
         self.logging_base_path = logging_base_path + "/FasterRCNN_Logging"
         self.tensorboard_logs_path = self.logging_base_path + "/Tensorboard_logs"
         self.model_params_path = self.logging_base_path + "/Model_parameters"
@@ -43,6 +44,8 @@ class FasterModel:
         self.epoch = 0
         self.last_batch = -1
 
+
+        
         if torch.cuda.is_available():
             self.device = torch.device("cuda")
         else:
@@ -54,6 +57,14 @@ class FasterModel:
         self.params = [p for p in self.model.parameters() if p.requires_grad]
         self.optimizer = torch.optim.SGD(
             self.params, lr=0.001, momentum=0.9, weight_decay=0.0005)
+
+        self.lr_scheduler = None
+        if self.epoch == 0:
+            warmup_factor = 1.0 / 1000
+            warmup_iters = min(1000, len(self.data_loader) - 1)
+            self.lr_scheduler = torch.optim.lr_scheduler.LinearLR(
+                self.optimizer, start_factor=warmup_factor, total_iters=warmup_iters
+            )
 
         self.metric_logger = utils.MetricLogger(delimiter="  ")
         self.metric_logger.add_meter(
@@ -72,7 +83,7 @@ class FasterModel:
         if self.wandb_logging:  # magari mettere controllo sugli altri campi obbligatori
             wandb.login(key=self.wandb_api_key)
 
-    def train(self, data_loader, print_freq, scaler=None, save_freq=None):
+    def train(self, print_freq, scaler=None, save_freq=None):
 
         if not os.path.exists(self.tensorboard_logs_path + "/Epoch_" + str(self.epoch)):
             os.makedirs(self.tensorboard_logs_path +
@@ -123,24 +134,16 @@ class FasterModel:
         self.model.train()
         header = f"Epoch: [{self.epoch}]"
 
-        # se interrompo e riprendo da un batch diverso da 0, devo resumare il lr_scheduler
-        lr_scheduler = None
-        if self.epoch == 0:
-            warmup_factor = 1.0 / 1000
-            warmup_iters = min(1000, len(data_loader) - 1)
 
-            lr_scheduler = torch.optim.lr_scheduler.LinearLR(
-                self.optimizer, start_factor=warmup_factor, total_iters=warmup_iters
-            )
+
         batches_since_last_save = 0
 
         try:
-            for batch_idx, (images, targets) in enumerate(self.metric_logger.log_every(data_loader, print_freq, header, resume_index=self.last_batch)):
-                data_loader.ready = False
-                if batch_idx <= self.last_batch:
-                    if lr_scheduler is not None:
-                        lr_scheduler.step()
-                    continue
+            for batch_idx, (images, targets) in enumerate(self.metric_logger.log_every(self.data_loader, print_freq, header, resume_index=self.last_batch)):
+                # if batch_idx <= self.last_batch:
+                #     if lr_scheduler is not None:
+                #         lr_scheduler.step()
+                #     continue
 
                 images = list(image.to(self.device) for image in images)
                 targets = [{k: v.to(self.device)
@@ -164,7 +167,7 @@ class FasterModel:
                 self.writer.add_scalar(
                     'loss/train', loss_value, global_step=batch_idx)
                 self.writer_all_epoch.add_scalar(
-                    'loss/train', loss_value, global_step=(batch_idx + len(data_loader) * self.epoch))
+                    'loss/train', loss_value, global_step=(batch_idx + len(self.data_loader) * self.epoch))
                 if self.wandb_logging:
                     wandb.log({"loss": loss_value})
 
@@ -182,8 +185,8 @@ class FasterModel:
                     losses.backward()
                     self.optimizer.step()
 
-                if lr_scheduler is not None:
-                    lr_scheduler.step()
+                if self.lr_scheduler is not None:
+                    self.lr_scheduler.step()
 
                 self.metric_logger.update(
                     loss=losses_reduced, **loss_dict_reduced)
@@ -238,6 +241,7 @@ class FasterModel:
             'last_batch': self.last_batch,
             'model_state_dict': self.model.state_dict(),
             'optimizer_state_dict': self.optimizer.state_dict(),
+            'lr_scheduler_state_dict': self.lr_scheduler.state_dict(),
             'metric_logger': {'meters': self.metric_logger.meters, 'iter_time': self.metric_logger.iter_time, 'data_time': self.metric_logger.data_time},
         }, self.model_params_path + "/epoch_" + str(self.epoch) + "_batch_" + str(self.last_batch) + ".pth")
 
@@ -262,6 +266,7 @@ class FasterModel:
                          str(self.epoch) + "_batch_" + str(self.last_batch) + ".pth")
         self.model.load_state_dict(diz['model_state_dict'])
         self.optimizer.load_state_dict = diz['optimizer_state_dict']
+        self.lr_scheduler.load_state_dict = diz['lr_scheduler_state_dict']
 
         self.metric_logger.meters = diz['metric_logger']['meters']
         self.metric_logger.iter_time = diz['metric_logger']['iter_time']

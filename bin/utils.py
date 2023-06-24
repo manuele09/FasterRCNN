@@ -182,25 +182,24 @@ class MetricLogger:
             if i % print_freq == 0 or i == len(iterable) - 1:
                 eta_seconds = self.iter_time.global_avg * (len(iterable) - i)
                 eta_string = str(datetime.timedelta(seconds=int(eta_seconds)))
-                if i > resume_index:
-                    if torch.cuda.is_available():
-                        print(
-                            log_msg.format(
-                                i,
-                                len(iterable),
-                                eta=eta_string,
-                                meters=str(self),
-                                time=str(self.iter_time),
-                                data=str(self.data_time),
-                                memory=torch.cuda.max_memory_allocated() / MB,
-                            )
+                if torch.cuda.is_available():
+                    print(
+                        log_msg.format(
+                            i,
+                            len(iterable),
+                            eta=eta_string,
+                            meters=str(self),
+                            time=str(self.iter_time),
+                            data=str(self.data_time),
+                            memory=torch.cuda.max_memory_allocated() / MB,
                         )
-                    else:
-                        print(
-                            log_msg.format(
-                                i, len(iterable), eta=eta_string, meters=str(self), time=str(self.iter_time), data=str(self.data_time)
-                            )
+                    )
+                else:
+                    print(
+                        log_msg.format(
+                            i, len(iterable), eta=eta_string, meters=str(self), time=str(self.iter_time), data=str(self.data_time)
                         )
+                    )
             i += 1
             end = time.time()
         total_time = time.time() - start_time
@@ -212,7 +211,8 @@ class MetricLogger:
 
 
 def collate_fn(batch):
-    return tuple(zip(*batch))
+    filtered_batch = list(filter(lambda x: x is not None, batch))
+    return tuple(zip(*filtered_batch))
 
 
 def mkdir(path):

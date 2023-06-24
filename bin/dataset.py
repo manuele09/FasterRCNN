@@ -102,13 +102,14 @@ class RealDataset(Dataset):
 
     # images_root: path containg all the images
     # image_list_path: path of the file containing the list of all the images name
-    def __init__(self, base_path, images_list=None, list_file_name=None,  transform=None, download_virtual_dataset=False):
+    def __init__(self, base_path, images_list=None, list_file_name=None,  transform=None, download_virtual_dataset=False, start_index=0):
         self.base_path = base_path
         self.download_virtual_dataset = download_virtual_dataset
         self.images_list = images_list
         self.transform = transform
         self.ready = False
         self.lock = threading.Lock()
+        self.start_index = start_index
 
 
         self.str_label = ["No Elmet", "Elmet", "Welding Mask",
@@ -176,6 +177,7 @@ class RealDataset(Dataset):
         if self.images_list is None:
             print("Error: images_list is None")
             return
+        self.images_list = self.images_list[self.start_index:]
 
     # Downloads the file_name.zip from the shared link, extracts it in the base_path
     # and deletes the zip file to save space
@@ -200,15 +202,14 @@ class RealDataset(Dataset):
 
     def __getitem__(self, index):
 
-
         worker_info = torch.utils.data.get_worker_info()
         if worker_info:
             worker_id = worker_info.id  # beetween 0 and num_workers-1
 
-        self.lock.acquire()
-        print(f"Woker {worker_id}: Acquired lock in {index}\n")
-        time.sleep(10)
-        self.lock.release()
+        # self.lock.acquire()
+        # print(f"Woker {worker_id}: Acquired lock in {index}\n")
+        # time.sleep(10)
+        # self.lock.release()
 
         if self.download_virtual_dataset and worker_id == 0:
 
@@ -233,16 +234,17 @@ class RealDataset(Dataset):
             self.ready = True
             print("Dataset ready")
 
-        print("Prima "+ str(index))
-        while(self.download_virtual_dataset and not self.ready):
-            print("Waiting for the main process to download the dataset... " + str(index))
-            time.sleep(1)
-        print("Dopo " + str(index))
+        # print("Prima "+ str(index))
+        # while(self.download_virtual_dataset and not self.ready):
+        #     print("Waiting for the main process to download the dataset... " + str(index))
+        #     time.sleep(1)
+        # print("Dopo " + str(index))
         # From here is the same if the dataset was downloaded or not
 
         # Circular indexing to avoid index out of range
         if (index >= len(self.images_list)):
-            return self.__getitem__(index % len(self.images_list))
+            return None
+            # return self.__getitem__(index % len(self.images_list))
         try:
             im = Image.open(self.images_list[index]).convert('RGB')
         # If the image is corrupted, delete it and return the next one
