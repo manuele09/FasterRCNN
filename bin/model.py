@@ -15,8 +15,9 @@ import signal
 import threading
 import wandb
 
+
 class FasterModel:
-    
+
     def handle_interrupt(self, signal, frame):
         print("\nCtrl+C pressed. Performing cleanup...")
         del self.current_images
@@ -25,8 +26,8 @@ class FasterModel:
         thread_id = threading.current_thread().ident
         print("Thread ID:", thread_id)
 
-        
-        sys.exit(0) 
+        sys.exit(0)
+
     def __init__(self, logging_base_path=".", upload_to_wandb=False, download_from_wandb=False, wandb_project_name=None, wandb_entity=None, wandb_api_key=""):
 
         self.logging_base_path = logging_base_path + "/FasterRCNN_Logging"
@@ -39,24 +40,26 @@ class FasterModel:
             os.makedirs(self.model_params_path)
             os.makedirs(self.model_params_path + "/All_Epochs")
 
-
         self.epoch = 0
-        self.last_batch = -1 
+        self.last_batch = -1
 
         if torch.cuda.is_available():
             self.device = torch.device("cuda")
         else:
             self.device = torch.device("cpu")
 
-        self.model = torchvision.models.detection.fasterrcnn_resnet50_fpn(weights='DEFAULT')
+        self.model = torchvision.models.detection.fasterrcnn_resnet50_fpn(
+            weights='DEFAULT')
         self.model.to(self.device)
         self.params = [p for p in self.model.parameters() if p.requires_grad]
-        self.optimizer = torch.optim.SGD(self.params, lr=0.001, momentum=0.9, weight_decay=0.0005)
+        self.optimizer = torch.optim.SGD(
+            self.params, lr=0.001, momentum=0.9, weight_decay=0.0005)
 
         self.metric_logger = utils.MetricLogger(delimiter="  ")
-        self.metric_logger.add_meter("lr", utils.SmoothedValue(window_size=1, fmt="{value:.6f}"))
+        self.metric_logger.add_meter(
+            "lr", utils.SmoothedValue(window_size=1, fmt="{value:.6f}"))
 
-        #signal.signal(signal.SIGINT, self.handle_interrupt)
+        # signal.signal(signal.SIGINT, self.handle_interrupt)
         self.current_images = None
         self.current_targets = None
 
@@ -71,29 +74,43 @@ class FasterModel:
 
         if self.download_from_wandb or self.upload_to_wandb:
             self.wandb_api = wandb.Api()
-            self.runs = self.wandb_api.runs(self.wandb_entity + "/" + self.wandb_project_name)
+            self.runs = self.wandb_api.runs(
+                self.wandb_entity + "/" + self.wandb_project_name)
+            self.projects = self.wandb.api.projects(self.wandb_entity)
+            if not any(p.name == self.wandb_project_name for p in self.projects):
+                run = wandb.init(
+                    project=self.wandb_project_name,
+                    config={
+                        "learning_rate": 0.001,
+                        "architecture": "FasterRCNN",
+                        "dataset": "Virtual Dataset (GTA5)"
+                    }
+                )
 
-
-
-    
     def train(self, data_loader, print_freq, scaler=None, save_freq=None):
 
         if not os.path.exists(self.tensorboard_logs_path + "/Epoch_" + str(self.epoch)):
-            os.makedirs(self.tensorboard_logs_path + "/Epoch_" + str(self.epoch))
+            os.makedirs(self.tensorboard_logs_path +
+                        "/Epoch_" + str(self.epoch))
 
-        self.writer = SummaryWriter(self.tensorboard_logs_path + "/Epoch_" + str(self.epoch))
-        self.writer_all_epoch = SummaryWriter(self.tensorboard_logs_path + "/All_Epochs")
-    
+        self.writer = SummaryWriter(
+            self.tensorboard_logs_path + "/Epoch_" + str(self.epoch))
+        self.writer_all_epoch = SummaryWriter(
+            self.tensorboard_logs_path + "/All_Epochs")
+
         if (self.upload_to_wandb):
-            #Returns the run_id of the current epoch if it exists, else returns None
-            run_id = next((run.id for run in self.runs if run.name == ("Epoch_" + str(self.epoch))), None)
+            # Returns the run_id of the current epoch if it exists, else returns None
+            run_id = next((run.id for run in self.runs if run.name == (
+                "Epoch_" + str(self.epoch))), None)
 
             if (run_id is None):
-                wandb.init(project=self.wandb_project_name, name=("Epoch_" + str(self.epoch)))
+                wandb.init(project=self.wandb_project_name,
+                           name=("Epoch_" + str(self.epoch)))
             else:
-                wandb.init(project=self.wandb_project_name, id=run_id, resume="must")
+                wandb.init(project=self.wandb_project_name,
+                           id=run_id, resume="must")
 
-            wandb.watch(self.model)        
+            wandb.watch(self.model)
 
         self.model.train()
         header = f"Epoch: [{self.epoch}]"
@@ -107,7 +124,7 @@ class FasterModel:
                 self.optimizer, start_factor=warmup_factor, total_iters=warmup_iters
             )
         batches_since_last_save = 0
-        
+
         try:
             for batch_idx, (images, targets) in enumerate(self.metric_logger.log_every(data_loader, print_freq, header, resume_index=self.last_batch)):
 
@@ -117,9 +134,10 @@ class FasterModel:
                     continue
 
                 images = list(image.to(self.device) for image in images)
-                targets = [{k: v.to(self.device) for k, v in t.items()} for t in targets]
+                targets = [{k: v.to(self.device)
+                            for k, v in t.items()} for t in targets]
 
-                #For CTRL+C handling
+                # For CTRL+C handling
                 self.current_images = images
                 self.current_targets = targets
 
@@ -129,12 +147,15 @@ class FasterModel:
 
                 # reduce losses over all GPUs for logging purposes
                 loss_dict_reduced = utils.reduce_dict(loss_dict)
-                losses_reduced = sum(loss for loss in loss_dict_reduced.values())
+                losses_reduced = sum(
+                    loss for loss in loss_dict_reduced.values())
 
                 loss_value = losses_reduced.item()
 
-                self.writer.add_scalar('loss/train', loss_value, global_step=batch_idx)
-                self.writer_all_epoch.add_scalar('loss/train', loss_value, global_step= (batch_idx + len(data_loader) * self.epoch))
+                self.writer.add_scalar(
+                    'loss/train', loss_value, global_step=batch_idx)
+                self.writer_all_epoch.add_scalar(
+                    'loss/train', loss_value, global_step=(batch_idx + len(data_loader) * self.epoch))
                 wandb.log({"loss": loss_value})
 
                 if not math.isfinite(loss_value):
@@ -154,8 +175,10 @@ class FasterModel:
                 if lr_scheduler is not None:
                     lr_scheduler.step()
 
-                self.metric_logger.update(loss=losses_reduced, **loss_dict_reduced)
-                self.metric_logger.update(lr=self.optimizer.param_groups[0]["lr"])
+                self.metric_logger.update(
+                    loss=losses_reduced, **loss_dict_reduced)
+                self.metric_logger.update(
+                    lr=self.optimizer.param_groups[0]["lr"])
 
                 self.last_batch = batch_idx
 
@@ -163,13 +186,13 @@ class FasterModel:
                     batches_since_last_save += 1
                     if batches_since_last_save >= save_freq:
                         self.save_model()
-                        batches_since_last_save = 0   
-                
+                        batches_since_last_save = 0
+
                 del images
                 del targets
                 torch.cuda.empty_cache()
 
-                #for CTRL+C handling
+                # for CTRL+C handling
                 self.current_images = None
                 self.current_targets = None
         except KeyboardInterrupt:
@@ -177,7 +200,7 @@ class FasterModel:
             del self.current_images
             del self.current_targets
             torch.cuda.empty_cache()
-            
+
             self.writer.close()
             self.writer_all_epoch.close()
 
@@ -186,36 +209,35 @@ class FasterModel:
 
             sys.exit(0)
 
-
         self.epoch += 1
         self.last_batch = -1
         self.save_model()
         self.writer.close()
         wandb.finish()
         self.metric_logger = utils.MetricLogger(delimiter="  ")
-        self.metric_logger.add_meter("lr", utils.SmoothedValue(window_size=1, fmt="{value:.6f}"))
+        self.metric_logger.add_meter(
+            "lr", utils.SmoothedValue(window_size=1, fmt="{value:.6f}"))
         return self.metric_logger
-
 
     def save_model(self):
         torch.save({
-                    'epoch': self.epoch,
-                    'last_batch': self.last_batch,
-                    'model_state_dict': self.model.state_dict(),
-                    'optimizer_state_dict': self.optimizer.state_dict(),
-                    'metric_logger': {'meters': self.metric_logger.meters, 'iter_time': self.metric_logger.iter_time, 'data_time': self.metric_logger.data_time},
-                    }, self.model_params_path + "/epoch_" + str(self.epoch) + "_batch_" + str(self.last_batch) + ".pth")
-       
+            'epoch': self.epoch,
+            'last_batch': self.last_batch,
+            'model_state_dict': self.model.state_dict(),
+            'optimizer_state_dict': self.optimizer.state_dict(),
+            'metric_logger': {'meters': self.metric_logger.meters, 'iter_time': self.metric_logger.iter_time, 'data_time': self.metric_logger.data_time},
+        }, self.model_params_path + "/epoch_" + str(self.epoch) + "_batch_" + str(self.last_batch) + ".pth")
+
         # with open(self.model_path + "/metric_logger_epoch_" + str(self.epoch) + "_batch_" + str(self.last_batch) + ".pickle", "wb") as outfile:
         #     pickle.dump(self.metric_logger.meters, outfile)
-         
 
         print(f"Model saved at epoch {self.epoch} and batch {self.last_batch}")
-        
+
     def load_model(self, epoch, last_batch):
         self.epoch = epoch
         self.last_batch = last_batch
-        diz = torch.load(self.model_params_path + "/epoch_" + str(self.epoch) + "_batch_" + str(self.last_batch) + ".pth")
+        diz = torch.load(self.model_params_path + "/epoch_" +
+                         str(self.epoch) + "_batch_" + str(self.last_batch) + ".pth")
         self.model.load_state_dict(diz['model_state_dict'])
         self.optimizer.load_state_dict = diz['optimizer_state_dict']
 
@@ -225,8 +247,9 @@ class FasterModel:
 
         # with open(self.model_path + "/metric_logger_epoch_" + str(self.epoch) + "_batch_" + str(self.last_batch) + ".pickle", "rb") as infile:
         #     self.metric_logger.meters = pickle.load(infile)
-        print(f"Model loaded at epoch {self.epoch} and batch {self.last_batch}")
-    
+        print(
+            f"Model loaded at epoch {self.epoch} and batch {self.last_batch}")
+
     @torch.inference_mode()
     def evaluate(self, data_loader):
         n_threads = torch.get_num_threads()
@@ -249,14 +272,17 @@ class FasterModel:
             model_time = time.time()
             outputs = self.model(images)
 
-            outputs = [{k: v.to(cpu_device) for k, v in t.items()} for t in outputs]
+            outputs = [{k: v.to(cpu_device) for k, v in t.items()}
+                       for t in outputs]
             model_time = time.time() - model_time
 
-            res = {target["image_id"].item(): output for target, output in zip(targets, outputs)}
+            res = {target["image_id"].item(): output for target,
+                   output in zip(targets, outputs)}
             evaluator_time = time.time()
             coco_evaluator.update(res)
             evaluator_time = time.time() - evaluator_time
-            metric_logger.update(model_time=model_time, evaluator_time=evaluator_time)
+            metric_logger.update(model_time=model_time,
+                                 evaluator_time=evaluator_time)
 
             del images
             del targets
@@ -283,5 +309,3 @@ class FasterModel:
         if isinstance(model_without_ddp, torchvision.models.detection.KeypointRCNN):
             iou_types.append("keypoints")
         return iou_types
-
-    
