@@ -206,8 +206,8 @@ class RealDataset(Dataset):
             worker_id = worker_info.id  # beetween 0 and num_workers-1
 
         self.lock.acquire()
-        print(f"Woker {worker_id}: Acquired lock in {index}")
-        time.sleep(5)
+        print(f"Woker {worker_id}: Acquired lock in {index}\n")
+        time.sleep(10)
         self.lock.release()
 
         if self.download_virtual_dataset and worker_id == 0:
