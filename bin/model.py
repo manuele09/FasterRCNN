@@ -242,10 +242,40 @@ class FasterModel:
                 policy="now"
             )
             print("Model uploaded to wandb.")
-            #aggiungere opzione per eliminare il file in locale
+            # aggiungere opzione per eliminare il file in locale
         print(f"Model saved at epoch {self.epoch} and batch {self.last_batch}")
 
     def load_model(self, epoch, last_batch):
+        self.epoch = epoch
+        self.last_batch = last_batch
+        diz = torch.load(self.model_params_path + "/epoch_" +
+                         str(self.epoch) + "_batch_" + str(self.last_batch) + ".pth")
+        self.model.load_state_dict(diz['model_state_dict'])
+        self.optimizer.load_state_dict = diz['optimizer_state_dict']
+
+        self.metric_logger.meters = diz['metric_logger']['meters']
+        self.metric_logger.iter_time = diz['metric_logger']['iter_time']
+        self.metric_logger.data_time = diz['metric_logger']['data_time']
+
+        # with open(self.model_path + "/metric_logger_epoch_" + str(self.epoch) + "_batch_" + str(self.last_batch) + ".pickle", "rb") as infile:
+        #     self.metric_logger.meters = pickle.load(infile)
+        print(
+            f"Model loaded at epoch {self.epoch} and batch {self.last_batch}")
+
+    def load_model_wandb(self, epoch, last_batch, entity, project_name):
+
+        api = wandb.Api()
+
+        runs = api.runs(entity + "/" + project_name)
+        run_id = next((run.id for run in runs if run.name ==
+                      ("Epoch_" + str(epoch))), None)
+        if run_id is None:
+            print("No run with this epoch found.")
+            sys.exit(0)
+        run = api.run(entity + "/" + project_name + "/" + run_id)
+        run.file("epoch_" + str(epoch) + "_batch_" + str(last_batch) + ".pth").download(self.model_params_path)
+        #vedere se eliminare files locali
+
         self.epoch = epoch
         self.last_batch = last_batch
         diz = torch.load(self.model_params_path + "/epoch_" +
