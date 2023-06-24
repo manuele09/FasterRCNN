@@ -97,17 +97,21 @@ class FasterModel:
                     self.wandb_entity + "/" + self.wandb_project_name)
                 run_id = next((run.id for run in self.runs if run.name == (
                     "Epoch_" + str(self.epoch))), None)
+                print("Run ID:", run_id)
 
                 # If the run doesn't exist, create it
                 if (run_id is None):
+                    print("none")
                     wandb.init(project=self.wandb_project_name,
                                name=("Epoch_" + str(self.epoch)), sync_tensorboard=True)
                 # If the run exists, resume it
                 else:
+                    print("not none")
                     wandb.init(project=self.wandb_project_name,
                                id=run_id, resume="must", sync_tensorboard=True)
             # If the project doesn't exist, create it
             else:
+                print("not exists")
                 wandb.init(project=self.wandb_project_name,
                            name=("Epoch_" + str(self.epoch)),
                            config={
