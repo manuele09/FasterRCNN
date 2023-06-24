@@ -25,7 +25,7 @@ import sys
 
 BATCH_SIZE = 2 # increase / decrease according to GPU memeory
 NUM_EPOCHS = 1 # number of epochs to train for
-NUM_WORKERS = 1
+NUM_WORKERS = 2
 
 base_path = ".."
 
@@ -53,7 +53,7 @@ else:
 #dataset.show_bounding(1)
 
 dataloader = DataLoader(dataset, batch_size=BATCH_SIZE, num_workers=NUM_WORKERS, collate_fn=collate_fn)
-
+# pin_memory=True
 
 model = FasterModel(base_path)
 model.load_model(0, 1)

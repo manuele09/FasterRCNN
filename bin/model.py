@@ -136,7 +136,7 @@ class FasterModel:
 
         try:
             for batch_idx, (images, targets) in enumerate(self.metric_logger.log_every(data_loader, print_freq, header, resume_index=self.last_batch)):
-
+                data_loader.ready = False
                 if batch_idx <= self.last_batch:
                     if lr_scheduler is not None:
                         lr_scheduler.step()

@@ -14,23 +14,26 @@ import subprocess
 import zipfile
 import sys
 import threading
+import time
 
 from custom_utils import change_extension, from_path_to_names
 
-#takes as input a list_file, containing the paths of the images.
-#modify the paths in the list_file, in order to mantain n_dirs_to_mantain directories
-#and adding new_root_path as root.
+# takes as input a list_file, containing the paths of the images.
+# modify the paths in the list_file, in order to mantain n_dirs_to_mantain directories
+# and adding new_root_path as root.
+
 
 def modify_list(list_file, n_dirs_to_mantain, new_root_path):
-    #Example of name in input_file: /dataset_1088x612/27_03_19_19_15_32/000/000001.png
-    #n_dirst_to_mantain: 2
-    #new_root_path: /Root
-    #Output name: /Root/27_03_19_19_15_32/000/000001.png
+    # Example of name in input_file: /dataset_1088x612/27_03_19_19_15_32/000/000001.png
+    # n_dirst_to_mantain: 2
+    # new_root_path: /Root
+    # Output name: /Root/27_03_19_19_15_32/000/000001.png
     new_list = []
     with open(list_file, "r") as f:
         file_paths = f.readlines()
         for i in range(len(file_paths)):
-            dirs, file_name = os.path.split(file_paths[i].replace('\\', os.sep))
+            dirs, file_name = os.path.split(
+                file_paths[i].replace('\\', os.sep))
             for j in range(n_dirs_to_mantain):
                 dirs, d = os.path.split(dirs)
                 file_name = os.path.join(d, file_name)
@@ -38,131 +41,144 @@ def modify_list(list_file, n_dirs_to_mantain, new_root_path):
             new_list.append(file_name.strip())
     return new_list
 
+
 def find_path(name, path):
     for root, dirs, files in os.walk(path):
         if name in dirs or name in files:
             return os.path.join(root, name)
     return None
-        
+
+
 def scan_path(path):
-    dirs = [os.path.join(path, name) for name in os.listdir(path) if os.path.isdir(os.path.join(path, name))]
+    dirs = [os.path.join(path, name) for name in os.listdir(
+        path) if os.path.isdir(os.path.join(path, name))]
     return dirs
+
+
 class RealDataset(Dataset):
 
-    #return a dictionary with the following keys: "image", "target".
+    # return a dictionary with the following keys: "image", "target".
     def read_target_from_file(self, index, im_width, im_height):
-        #bounding file format: x_center, y_center, width, height (all expressed in percentages)
-        #bounding new format: x_min, y_min, x_max, y_max (expressed in the real image range)
+        # bounding file format: x_center, y_center, width, height (all expressed in percentages)
+        # bounding new format: x_min, y_min, x_max, y_max (expressed in the real image range)
         labels = []
         bounding_boxes = []
 
         target_path = change_extension(self.images_list[index], ".txt")
         with open(target_path, 'r') as file:
             for line in file:
-                target_str = line.strip().split() #label     x_center  y_center  width     height
-                                              #target[0] target[1] target[2] target[3] target[4]
+                # label     x_center  y_center  width     height
+                target_str = line.strip().split()
+                # target[0] target[1] target[2] target[3] target[4]
                 target = [float(x) for x in target_str]
-                
+
                 bbox = []
 
-                #x_min
-                bbox.append((target[1] - target[3] / 2)*im_width) #x_c - w / 2
-                #y_min
-                bbox.append((target[2] - target[4] / 2)*im_height) #y_c - h / 2
-                #x_max
-                bbox.append((target[1] + target[3] / 2)*im_width) #x_c + w / 2
-                #y_max
-                bbox.append((target[2] + target[4] / 2)*im_height) #y_c + h / 2
+                # x_min
+                bbox.append((target[1] - target[3] / 2)
+                            * im_width)  # x_c - w / 2
+                # y_min
+                bbox.append((target[2] - target[4] / 2)
+                            * im_height)  # y_c - h / 2
+                # x_max
+                bbox.append((target[1] + target[3] / 2)
+                            * im_width)  # x_c + w / 2
+                # y_max
+                bbox.append((target[2] + target[4] / 2)
+                            * im_height)  # y_c + h / 2
 
                 bounding_boxes.append(bbox)
                 labels.append(int(target[0]))
-            
+
         target_dict = {}
         target_dict["boxes"] = torch.tensor(bounding_boxes)
         target_dict["labels"] = torch.tensor(labels)
         target_dict["image_id"] = torch.tensor([index])
-        target_dict["area"] = (target_dict["boxes"][:, 3] - target_dict["boxes"][:, 1]) * (target_dict["boxes"][:, 2] - target_dict["boxes"][:, 0])
+        target_dict["area"] = (target_dict["boxes"][:, 3] - target_dict["boxes"]
+                               [:, 1]) * (target_dict["boxes"][:, 2] - target_dict["boxes"][:, 0])
         target_dict["iscrowd"] = torch.zeros((len(labels),), dtype=torch.int64)
-
 
         return target_dict
 
-    #images_root: path containg all the images
-    #image_list_path: path of the file containing the list of all the images name
+    # images_root: path containg all the images
+    # image_list_path: path of the file containing the list of all the images name
     def __init__(self, base_path, images_list=None, list_file_name=None,  transform=None, download_virtual_dataset=False):
         self.base_path = base_path
         self.download_virtual_dataset = download_virtual_dataset
         self.images_list = images_list
         self.transform = transform
-        self.lock = threading.Lock()
+        self.ready = False
 
-
-        self.str_label = ["No Elmet", "Elmet", "Welding Mask", "Ear Protection", "No Gilet", "Gilet", "Person"]
-        self.colors = ['red', 'blue', 'green', 'orange', 'purple', 'pink', "brown"]
+        self.str_label = ["No Elmet", "Elmet", "Welding Mask",
+                          "Ear Protection", "No Gilet", "Gilet", "Person"]
+        self.colors = ['red', 'blue', 'green',
+                       'orange', 'purple', 'pink', "brown"]
         self.dirs_ids = {"train.virtual.txt": "ESRgAfYQkchGj4Hjfl_lZLMBoLNTrhkHwPJzYBGsrt4SeA",
-       "valid.virtual.txt": "EXRzg_URR-ZEoYMpYH6W8R4BJWUVq4HMKZe-bvoq8ngUXw",
-       "27_03_19_19_15_32": "EVujRKjyKSJDiQ_8b-46r7sBSoY7yMre_UiHVXy4W3c14w",
-       "27_03_19_19_47_44": "EVTdTdDHT6FPkTAh-zK2JaoBQFNXpsHJfiKtOlxlga5dDQ",
-       "27_03_19_20_16_23":  "EZnnM9VW7qxCpuOoMd3DD70BTxf3qTUSzSFo1ItAcpzvVQ",
-       "27_03_19_20_43_51": "EbFMsp8MSwlDgXkS0EguZkwBhw5DCgi2nO3yTtjl426WMQ",
-       "27_03_19_21_09_00": "EUTcg4dh9G1Ji1QSQ34MTIIBBavjnOQYRAA0RsEx_Z4VqA",
-       "29_03_19_03_39_42": "ESDmLETIsShNlE2oEJI1D2QB2trOJCjWsJsc3O-dssu_ag",
-       "29_03_19_04_06_35": "EdoGdVHUsLRJiMxh0a1VBBEBrYeC2eX0Elvs1Jhq_b2gmw",
-       "29_03_19_04_34_54": "Ed4ZNXeY9a9HgY4T6MJJ7f0ByGK1EwbQmTxI8m6ijxDiBQ",
-       "29_03_19_05_01_34": "Ee9SYf6BuCxJiCpNbdXMTxoBEVHGA66aSHfsdmS_leHswQ",
-       "29_03_19_05_27_16": "Ed5KYH5YpX9BuS-5L4XDI9UBslYiXpRFs_UR8G_lBeQZzA",
-       "29_03_19_05_51_06": "EUi2CAMAvChJhPgQ0WNZGSoBGkuF0RQtD-4JXkhdJgNrEg",
-       "29_03_19_06_18_10": "EVnFqP7dx4VDnQ8XhiCa3W8B7VnESrnCYDghjrfGWU6xYQ",
-       "29_03_19_06_49_23": "EZI6BtKNLKNPqvXrH1WV-yQBX8KE-aAYfxaYqAZwT2048A",
-       "29_03_19_07_14_43": "EcrxUMpbayNLgMFvdH99rcQBCPedcn6QKavKeecMAPOGDA",
-       "29_03_19_07_45_24": "ERFr_pA4MRRIiemPRdMcoJwBuRjXdg62UYsgm9NAR1dDOA",
-       "29_03_19_08_12_28": "EWltsNr9UHdJsiC88YFQdmoB76AwtIFy6wea4oHZMRCNTw",
-       "29_03_19_08_39_27": "EaQFe7l04HxMpqzaYsxxQdUBLAtAKfESjI5jHgOg8Yz8PQ",
-       "29_03_19_09_05_50": "EZC6nbmQuz5OjFBKaTIoeRMBDSrtW6bNG-HNbB-F8DV3_Q",
-       "29_03_19_11_23_30": "EdDkwmpyxRpBqyCRbW3_75ABg4rPucqeMs-3afhEkEE7fA",
-       "29_03_19_11_48_52": "ERkF1A2H8NZPrIXx2EIZcyoBw10Q9k2QG2gIzvmMnxUXTA",
-       "29_03_19_12_11_24": "Ec51v9AKNTRPo1DI-YFLkrwBZptCy3XcPG-zZXHGHPYwsA",
-       "29_03_19_12_36_41": "ET5MAzxCLdRApgu-Yd4QSIsBIUIK2ZO1gc5VCgPpyC2hVw",
-       "29_03_19_13_16_22": "Eb6aTsYREItFrJb0kcbIbYEBWNHdlihTP7GTKOdgXC18Hg",
-       "29_03_19_13_40_24": "Ec8f5L291nBDkB6Z8XdbuZQB5fzAu9Rvb_3b0j8331ihNg",
-       "29_03_19_14_05_16": "EW0WMufbzspGim2ktl1jRosBwgeVU351rGaNTe4uy4VgRw",
-       "29_03_19_14_34_53": "EShJyt7_ELVOjxxmje0tYK8BImM7XYIlnLXaBZLm0f5iCQ",
-       "29_03_19_15_07_02": "EfjQr--s7u1NrkA13UNBZisBk596wqeFYFAr9qshRuefsw",
-       "29_03_19_15_39_29": "EXxy-jkcuLtHpR5vWX2y3ukBctruwvFqO9KNb2PshLSuow",
-       "29_03_19_16_06_55": "EQ1oEyDMhs9Au2AtS9wyIU4BnWKFxAg6UJyL8oD8I-8y2w",
-       "29_03_19_16_29_52": "EdKf-fzUaxxPk8wE_lykl2wBkec_JR4gjEtXpjdzuIl3Qw"}
-        
+                         "valid.virtual.txt": "EXRzg_URR-ZEoYMpYH6W8R4BJWUVq4HMKZe-bvoq8ngUXw",
+                         "27_03_19_19_15_32": "EVujRKjyKSJDiQ_8b-46r7sBSoY7yMre_UiHVXy4W3c14w",
+                         "27_03_19_19_47_44": "EVTdTdDHT6FPkTAh-zK2JaoBQFNXpsHJfiKtOlxlga5dDQ",
+                         "27_03_19_20_16_23":  "EZnnM9VW7qxCpuOoMd3DD70BTxf3qTUSzSFo1ItAcpzvVQ",
+                         "27_03_19_20_43_51": "EbFMsp8MSwlDgXkS0EguZkwBhw5DCgi2nO3yTtjl426WMQ",
+                         "27_03_19_21_09_00": "EUTcg4dh9G1Ji1QSQ34MTIIBBavjnOQYRAA0RsEx_Z4VqA",
+                         "29_03_19_03_39_42": "ESDmLETIsShNlE2oEJI1D2QB2trOJCjWsJsc3O-dssu_ag",
+                         "29_03_19_04_06_35": "EdoGdVHUsLRJiMxh0a1VBBEBrYeC2eX0Elvs1Jhq_b2gmw",
+                         "29_03_19_04_34_54": "Ed4ZNXeY9a9HgY4T6MJJ7f0ByGK1EwbQmTxI8m6ijxDiBQ",
+                         "29_03_19_05_01_34": "Ee9SYf6BuCxJiCpNbdXMTxoBEVHGA66aSHfsdmS_leHswQ",
+                         "29_03_19_05_27_16": "Ed5KYH5YpX9BuS-5L4XDI9UBslYiXpRFs_UR8G_lBeQZzA",
+                         "29_03_19_05_51_06": "EUi2CAMAvChJhPgQ0WNZGSoBGkuF0RQtD-4JXkhdJgNrEg",
+                         "29_03_19_06_18_10": "EVnFqP7dx4VDnQ8XhiCa3W8B7VnESrnCYDghjrfGWU6xYQ",
+                         "29_03_19_06_49_23": "EZI6BtKNLKNPqvXrH1WV-yQBX8KE-aAYfxaYqAZwT2048A",
+                         "29_03_19_07_14_43": "EcrxUMpbayNLgMFvdH99rcQBCPedcn6QKavKeecMAPOGDA",
+                         "29_03_19_07_45_24": "ERFr_pA4MRRIiemPRdMcoJwBuRjXdg62UYsgm9NAR1dDOA",
+                         "29_03_19_08_12_28": "EWltsNr9UHdJsiC88YFQdmoB76AwtIFy6wea4oHZMRCNTw",
+                         "29_03_19_08_39_27": "EaQFe7l04HxMpqzaYsxxQdUBLAtAKfESjI5jHgOg8Yz8PQ",
+                         "29_03_19_09_05_50": "EZC6nbmQuz5OjFBKaTIoeRMBDSrtW6bNG-HNbB-F8DV3_Q",
+                         "29_03_19_11_23_30": "EdDkwmpyxRpBqyCRbW3_75ABg4rPucqeMs-3afhEkEE7fA",
+                         "29_03_19_11_48_52": "ERkF1A2H8NZPrIXx2EIZcyoBw10Q9k2QG2gIzvmMnxUXTA",
+                         "29_03_19_12_11_24": "Ec51v9AKNTRPo1DI-YFLkrwBZptCy3XcPG-zZXHGHPYwsA",
+                         "29_03_19_12_36_41": "ET5MAzxCLdRApgu-Yd4QSIsBIUIK2ZO1gc5VCgPpyC2hVw",
+                         "29_03_19_13_16_22": "Eb6aTsYREItFrJb0kcbIbYEBWNHdlihTP7GTKOdgXC18Hg",
+                         "29_03_19_13_40_24": "Ec8f5L291nBDkB6Z8XdbuZQB5fzAu9Rvb_3b0j8331ihNg",
+                         "29_03_19_14_05_16": "EW0WMufbzspGim2ktl1jRosBwgeVU351rGaNTe4uy4VgRw",
+                         "29_03_19_14_34_53": "EShJyt7_ELVOjxxmje0tYK8BImM7XYIlnLXaBZLm0f5iCQ",
+                         "29_03_19_15_07_02": "EfjQr--s7u1NrkA13UNBZisBk596wqeFYFAr9qshRuefsw",
+                         "29_03_19_15_39_29": "EXxy-jkcuLtHpR5vWX2y3ukBctruwvFqO9KNb2PshLSuow",
+                         "29_03_19_16_06_55": "EQ1oEyDMhs9Au2AtS9wyIU4BnWKFxAg6UJyL8oD8I-8y2w",
+                         "29_03_19_16_29_52": "EdKf-fzUaxxPk8wE_lykl2wBkec_JR4gjEtXpjdzuIl3Qw"}
+
         if self.download_virtual_dataset:
             if list_file_name is None:
                 print("Error: list_file_name is None")
-                return 
-            
-            #create the base_path if not exists, and download the list_file
+                return
+
+            # create the base_path if not exists, and download the list_file
             if not os.path.exists(self.base_path):
                 print("Creating base_path")
                 os.makedirs(self.base_path)
                 self.download_and_extract(list_file_name)
-            #if the base_path exists but the list_file doesn't, download it
+            # if the base_path exists but the list_file doesn't, download it
             if find_path(list_file_name, self.base_path) is None:
                 self.download_and_extract(list_file_name)
 
-            #finds the list file path, modifies the relative paths in the list.
-            self.images_list = modify_list(find_path(list_file_name, self.base_path), 3, self.base_path)
-            
-            #it is the path that will contain all the folders of the virtual dataset: 27_03_19_19_15_32, 27_03_19_19_47_44, ...
-            self.full_path = os.path.join(self.base_path, self.images_list[0].split(os.path.sep)[-4])
-            #usually it is base_path + "/dataset_1088x612"
-            
-        #Now we should have a complete images_list, that may be generated by the downloaded file
-        #or given as input by the user
+            # finds the list file path, modifies the relative paths in the list.
+            self.images_list = modify_list(
+                find_path(list_file_name, self.base_path), 3, self.base_path)
+
+            # it is the path that will contain all the folders of the virtual dataset: 27_03_19_19_15_32, 27_03_19_19_47_44, ...
+            self.full_path = os.path.join(
+                self.base_path, self.images_list[0].split(os.path.sep)[-4])
+            # usually it is base_path + "/dataset_1088x612"
+
+        # Now we should have a complete images_list, that may be generated by the downloaded file
+        # or given as input by the user
         if self.images_list is None:
             print("Error: images_list is None")
-            return 
+            return
 
-    #Downloads the file_name.zip from the shared link, extracts it in the base_path
-    #and deletes the zip file to save space
+    # Downloads the file_name.zip from the shared link, extracts it in the base_path
+    # and deletes the zip file to save space
     def download_and_extract(self, file_name):
-        #Download the zip
+        # Download the zip
         print(f"Downloading {file_name}.zip ...")
         file_id = self.dirs_ids[file_name]
         out_path = os.path.join(self.base_path, file_name) + ".zip"
@@ -171,60 +187,68 @@ class RealDataset(Dataset):
         subprocess.run(command, shell=True)
         print("Download completed.")
 
-        #Extract the zip
+        # Extract the zip
         print(f"Unzipping {file_name}.zip ...")
         with zipfile.ZipFile(out_path, 'r') as zip_ref:
             zip_ref.extractall(self.base_path)
-        print("Unzip completed.") 
+        print("Unzip completed.")
 
-        #Delete the zip
-        os.remove(out_path)    
-
+        # Delete the zip
+        os.remove(out_path)
 
     def __getitem__(self, index):
-        if self.download_virtual_dataset:
 
-            #Find the directory that contains the image
-            current_dir = self.images_list[index].split(os.path.sep)[-3] 
+        worker_info = torch.utils.data.get_worker_info()
+        if worker_info:
+            worker_id = worker_info.id  # beetween 0 and num_workers-1
 
-            self.lock.acquire()
-            #Scan the full_path to find all the downloaded directories
+
+        if self.download_virtual_dataset and worker_id == 0:
+
+            # Find the directory that contains the image
+            current_dir = self.images_list[index].split(os.path.sep)[-3]
+
+            # Scan the full_path to find all the downloaded directories
             self.downloaded_dirs = scan_path(self.full_path)
-            #Remove all the directories that are not the current_dir.
+            # Remove all the directories that are not the current_dir.
             current_dir_downloaded = False
             for i in range(len(self.downloaded_dirs)):
                 if os.path.basename(self.downloaded_dirs[i]) != current_dir:
                     print(f"Removing {self.downloaded_dirs[i]}")
-                    shutil.rmtree(self.downloaded_dirs[i]) #aggiungere opzione per non rimuovere
+                    # aggiungere opzione per non rimuovere
+                    shutil.rmtree(self.downloaded_dirs[i])
                 else:
                     current_dir_downloaded = True
 
-            #If current_dir is not downloaded, download it
+            # If current_dir is not downloaded, download it
             if not current_dir_downloaded:
-                self.download_and_extract(current_dir)           
-            self.lock.release()
+                self.download_and_extract(current_dir)
+            self.ready = True
+            
+        while(not self.ready):
+            time.sleep(1)
+        # From here is the same if the dataset was downloaded or not
 
-        #From here is the same if the dataset was downloaded or not
-
-        #Circular indexing to avoid index out of range
-        if (index >= len(self.images_list)): 
+        # Circular indexing to avoid index out of range
+        if (index >= len(self.images_list)):
             return self.__getitem__(index % len(self.images_list))
         try:
             im = Image.open(self.images_list[index]).convert('RGB')
-        #If the image is corrupted, delete it and return the next one
+        # If the image is corrupted, delete it and return the next one
         except Exception as e:
             print(" Exception caught: skipping dataset element.")
             print(f"Error reading image {self.images_list[index]}: {e}")
             del self.images_list[index]
             return self.__getitem__(index)
-        
-        #Apply the transformations
+
+        # Apply the transformations
         if self.transform is not None:
             im = self.transform(im)
-        
-        #Same strategy as before if target is corrupted
+
+        # Same strategy as before if target is corrupted
         try:
-            target = self.read_target_from_file(index, im.shape[2], im.shape[1])
+            target = self.read_target_from_file(
+                index, im.shape[2], im.shape[1])
             if target["boxes"].shape[0] == 0 or target["boxes"].shape[1] != 4:
                 raise Exception("Invalid box format.")
         except Exception as e:
@@ -232,29 +256,30 @@ class RealDataset(Dataset):
             print(f"Error reading target of {self.images_list[index]}: {e}")
             del self.images_list[index]
             return self.__getitem__(index)
-        
+
         return im, target
-    
+
     def __len__(self):
         return len(self.images_list)
-    
+
     def show_bounding(self, index):
         image, targets = self[index]
         self.label, self.bounding = targets["labels"], targets["boxes"]
-        
+
         fig, ax = plt.subplots(1)
         ax.imshow(image.permute(1, 2, 0))
-        #ax.imshow(image)
-        
-        for l, bbox in zip(self.label, self.bounding):
-            width = bbox[2] - bbox[0]  
-            height = bbox[3] - bbox[1] 
+        # ax.imshow(image)
 
-            x = bbox[0] 
-            y = bbox[1] 
-                        
+        for l, bbox in zip(self.label, self.bounding):
+            width = bbox[2] - bbox[0]
+            height = bbox[3] - bbox[1]
+
+            x = bbox[0]
+            y = bbox[1]
+
             # Create a rectangle patch
-            rect = patches.Rectangle((x, y), width, height, linewidth=1, edgecolor=self.colors[l], facecolor="none")
+            rect = patches.Rectangle(
+                (x, y), width, height, linewidth=1, edgecolor=self.colors[l], facecolor="none")
 
             # Add the rectangle to the axes
             ax.add_patch(rect)
@@ -262,5 +287,3 @@ class RealDataset(Dataset):
 
         # Show the plot
         plt.show()
-    
-
