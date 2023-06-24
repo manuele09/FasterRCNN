@@ -100,11 +100,11 @@ class FasterModel:
                 # If the run doesn't exist, create it
                 if (run_id is None):
                     wandb.init(project=self.wandb_project_name,
-                               name=("Epoch_" + str(self.epoch)))
+                               name=("Epoch_" + str(self.epoch)), sync_tensorboard=True)
                 # If the run exists, resume it
                 else:
                     wandb.init(project=self.wandb_project_name,
-                               id=run_id, resume="must")
+                               id=run_id, resume="must", sync_tensorboard=True)
             # If the project doesn't exist, create it
             else:
                 wandb.init(project=self.wandb_project_name,
@@ -112,7 +112,7 @@ class FasterModel:
                            config={
                                "learning_rate": 0.001,
                                "architecture": "FasterRCNN",
-                           })
+                           }, sync_tensorboard=True)
 
         self.model.train()
         header = f"Epoch: [{self.epoch}]"
