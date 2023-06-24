@@ -72,6 +72,11 @@ class FasterModel:
         if self.upload_to_wandb:
             wandb.login(key=self.wandb_api_key)
 
+        
+
+
+    def train(self, data_loader, print_freq, scaler=None, save_freq=None):
+
         if self.download_from_wandb or self.upload_to_wandb:
             self.wandb_api = wandb.Api()
             self.runs = self.wandb_api.runs(
@@ -79,18 +84,7 @@ class FasterModel:
             self.projects = self.wandb_api.projects(self.wandb_entity)
             self.project_exists = any(
                 p.name == self.wandb_project_name for p in self.projects)
-            # if not any(p.name == self.wandb_project_name for p in self.projects):
-            #     run = wandb.init(
-            #         project=self.wandb_project_name,
-            #         config={
-            #             "learning_rate": 0.001,
-            #             "architecture": "FasterRCNN",
-            #             "dataset": "Virtual Dataset (GTA5)"
-            #         }
-            #     )
-
-    def train(self, data_loader, print_freq, scaler=None, save_freq=None):
-
+            
         if not os.path.exists(self.tensorboard_logs_path + "/Epoch_" + str(self.epoch)):
             os.makedirs(self.tensorboard_logs_path +
                         "/Epoch_" + str(self.epoch))
