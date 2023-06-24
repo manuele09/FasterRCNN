@@ -273,7 +273,7 @@ class FasterModel:
             print("No run with this epoch found.")
             sys.exit(0)
         run = api.run(entity + "/" + project_name + "/" + run_id)
-        run.file("epoch_" + str(epoch) + "_batch_" + str(last_batch) + ".pth").download(self.model_params_path)
+        run.file("epoch_" + str(epoch) + "_batch_" + str(last_batch) + ".pth").download(self.model_params_path, replace=True)
         #vedere se eliminare files locali
 
         self.epoch = epoch
