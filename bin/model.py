@@ -14,7 +14,6 @@ import os
 import signal
 import threading
 import wandb
-import glob
 
 
 class FasterModel:
@@ -72,7 +71,7 @@ class FasterModel:
         if self.wandb_logging:  # magari mettere controllo sugli altri campi obbligatori
             wandb.login(key=self.wandb_api_key)
             self.wandb_api = wandb.Api()
-            wandb.save(glob.glob(f"runs/*.pt.trace.json")[0], base_path=f"runs")
+            
 
     def train(self, data_loader, print_freq, scaler=None, save_freq=None):
 
