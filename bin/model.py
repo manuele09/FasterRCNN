@@ -76,7 +76,7 @@ class FasterModel:
             self.wandb_api = wandb.Api()
             self.runs = self.wandb_api.runs(
                 self.wandb_entity + "/" + self.wandb_project_name)
-            self.projects = wandb.api.projects(self.wandb_entity)
+            self.projects = self.wandb_api.projects(self.wandb_entity)
             self.project_exists = any(
                 p.name == self.wandb_project_name for p in self.projects)
             # if not any(p.name == self.wandb_project_name for p in self.projects):
