@@ -26,9 +26,9 @@ class FasterModel:
         thread_id = threading.current_thread().ident
         print("Thread ID:", thread_id)
 
-        sys.exit(0)
+        return
 
-    def __init__(self, logging_base_path=".", wand_logging=False, wandb_project_name=None, wandb_entity=None, wandb_api_key=""):
+    def __init__(self, logging_base_path=".", wand_logging=False, wandb_project_name=None, wandb_entity=None, wandb_api_key="", save_memory=False):
 
         self.logging_base_path = logging_base_path + "/FasterRCNN_Logging"
         self.tensorboard_logs_path = self.logging_base_path + "/Tensorboard_logs"
@@ -67,11 +67,10 @@ class FasterModel:
         self.wandb_project_name = wandb_project_name
         self.wandb_entity = wandb_entity
         self.wandb_api_key = wandb_api_key
+        self.save_memory = save_memory
 
         if self.wandb_logging:  # magari mettere controllo sugli altri campi obbligatori
             wandb.login(key=self.wandb_api_key)
-            
-            
 
     def train(self, data_loader, print_freq, scaler=None, save_freq=None):
 
@@ -86,7 +85,7 @@ class FasterModel:
 
         if self.wandb_logging:
             self.wandb_api = wandb.Api()
-            
+
             # Search for the project in the entity
             self.projects = self.wandb_api.projects(self.wandb_entity)
             self.project_exists = any(
@@ -124,6 +123,7 @@ class FasterModel:
         self.model.train()
         header = f"Epoch: [{self.epoch}]"
 
+        # se interrompo e riprendo da un batch diverso da 0, devo resumare il lr_scheduler
         lr_scheduler = None
         if self.epoch == 0:
             warmup_factor = 1.0 / 1000
@@ -171,7 +171,7 @@ class FasterModel:
                 if not math.isfinite(loss_value):
                     print(f"Loss is {loss_value}, stopping training")
                     print(loss_dict_reduced)
-                    sys.exit(1)
+                    return
 
                 self.optimizer.zero_grad()
                 if scaler is not None:
@@ -219,7 +219,7 @@ class FasterModel:
             if self.wandb_logging:
                 wandb.finish()
 
-            sys.exit(0)
+            return
 
         self.epoch += 1
         self.last_batch = -1
@@ -249,6 +249,9 @@ class FasterModel:
                 policy="now"
             )
             print("Model uploaded to wandb.")
+            if self.save_memory:
+                os.remove(self.model_params_path + "/epoch_" +
+                          str(self.epoch) + "_batch_" + str(self.last_batch) + ".pth")
             # aggiungere opzione per eliminare il file in locale
         print(f"Model saved at epoch {self.epoch} and batch {self.last_batch}")
 
@@ -264,8 +267,6 @@ class FasterModel:
         self.metric_logger.iter_time = diz['metric_logger']['iter_time']
         self.metric_logger.data_time = diz['metric_logger']['data_time']
 
-        # with open(self.model_path + "/metric_logger_epoch_" + str(self.epoch) + "_batch_" + str(self.last_batch) + ".pickle", "rb") as infile:
-        #     self.metric_logger.meters = pickle.load(infile)
         print(
             f"Model loaded at epoch {self.epoch} and batch {self.last_batch}")
 
@@ -278,10 +279,11 @@ class FasterModel:
                       ("Epoch_" + str(epoch))), None)
         if run_id is None:
             print("No run with this epoch found.")
-            sys.exit(0)
+            return
         run = api.run(entity + "/" + project_name + "/" + run_id)
-        run.file("epoch_" + str(epoch) + "_batch_" + str(last_batch) + ".pth").download(self.model_params_path, replace=True)
-        #vedere se eliminare files locali
+        run.file("epoch_" + str(epoch) + "_batch_" + str(last_batch) +
+                 ".pth").download(self.model_params_path, replace=True)
+        # vedere se eliminare files locali
 
         self.epoch = epoch
         self.last_batch = last_batch
@@ -293,6 +295,10 @@ class FasterModel:
         self.metric_logger.meters = diz['metric_logger']['meters']
         self.metric_logger.iter_time = diz['metric_logger']['iter_time']
         self.metric_logger.data_time = diz['metric_logger']['data_time']
+
+        if self.save_memory:
+            os.remove(self.model_params_path + "/epoch_" +
+                      str(self.epoch) + "_batch_" + str(self.last_batch) + ".pth")
 
         # with open(self.model_path + "/metric_logger_epoch_" + str(self.epoch) + "_batch_" + str(self.last_batch) + ".pickle", "rb") as infile:
         #     self.metric_logger.meters = pickle.load(infile)

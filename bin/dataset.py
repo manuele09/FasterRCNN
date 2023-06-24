@@ -135,7 +135,7 @@ class RealDataset(Dataset):
         if self.download_virtual_dataset:
             if list_file_name is None:
                 print("Error: list_file_name is None")
-                return #should be exit but is not defined in sagemaker
+                return 
             
             #create the base_path if not exists, and download the list_file
             if not os.path.exists(self.base_path):
@@ -157,7 +157,7 @@ class RealDataset(Dataset):
         #or given as input by the user
         if self.images_list is None:
             print("Error: images_list is None")
-            return #should be exit 
+            return 
 
     #Downloads the file_name.zip from the shared link, extracts it in the base_path
     #and deletes the zip file to save space
