@@ -99,10 +99,12 @@ class FasterModel:
             if self.project_exists:
                 run_id = next((run.id for run in self.runs if run.name == (
                     "Epoch_" + str(self.epoch))), None)
+                print("Run ID:", run_id)
                 if (run_id is None):
                     wandb.init(project=self.wandb_project_name,
                                name=("Epoch_" + str(self.epoch)))
                 else:
+                    print("Resume")
                     wandb.init(project=self.wandb_project_name,
                                id=run_id, resume="must")
             else:
