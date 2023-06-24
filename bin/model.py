@@ -11,9 +11,23 @@ import sys
 import utils
 import time
 import os
+import signal
+import threading
+import wandb
 
 class FasterModel:
-    def __init__(self, logging_base_path="."):
+    
+    def handle_interrupt(self, signal, frame):
+        print("\nCtrl+C pressed. Performing cleanup...")
+        del self.current_images
+        del self.current_targets
+        torch.cuda.empty_cache()
+        thread_id = threading.current_thread().ident
+        print("Thread ID:", thread_id)
+
+        
+        sys.exit(0) 
+    def __init__(self, logging_base_path=".", upload_to_wandb=False, download_from_wandb=False, wandb_project_name=None, wandb_entity=None, wandb_api_key=""):
 
         self.logging_base_path = logging_base_path + "/FasterRCNN_Logging"
         self.tensorboard_logs_path = self.logging_base_path + "/Tensorboard_logs"
@@ -25,7 +39,6 @@ class FasterModel:
             os.makedirs(self.model_params_path)
             os.makedirs(self.model_params_path + "/All_Epochs")
 
-        self.writer_all_epoch = SummaryWriter(self.tensorboard_logs_path + "/All_Epochs")
 
         self.epoch = 0
         self.last_batch = -1 
@@ -43,6 +56,23 @@ class FasterModel:
         self.metric_logger = utils.MetricLogger(delimiter="  ")
         self.metric_logger.add_meter("lr", utils.SmoothedValue(window_size=1, fmt="{value:.6f}"))
 
+        #signal.signal(signal.SIGINT, self.handle_interrupt)
+        self.current_images = None
+        self.current_targets = None
+
+        self.upload_to_wandb = upload_to_wandb
+        self.download_from_wandb = download_from_wandb
+        self.wandb_project_name = wandb_project_name
+        self.wandb_entity = wandb_entity
+        self.wandb_api_key = wandb_api_key
+
+        if self.upload_to_wandb:
+            wandb.login(key=self.wandb_api_key)
+
+        if self.download_from_wandb or self.upload_to_wandb:
+            self.wandb_api = wandb.Api()
+            self.runs = self.wandb_api.runs(self.wandb_entity + "/" + self.wandb_project_name)
+
 
 
     
@@ -52,9 +82,18 @@ class FasterModel:
             os.makedirs(self.tensorboard_logs_path + "/Epoch_" + str(self.epoch))
 
         self.writer = SummaryWriter(self.tensorboard_logs_path + "/Epoch_" + str(self.epoch))
+        self.writer_all_epoch = SummaryWriter(self.tensorboard_logs_path + "/All_Epochs")
     
-        #self.writer = SummaryWriter(self.tensorboard_logs_path, flush_secs=10, purge_step=self.last_batch + 1)
+        if (self.upload_to_wandb):
+            #Returns the run_id of the current epoch if it exists, else returns None
+            run_id = next((run.id for run in self.runs if run.name == ("Epoch_" + str(self.epoch))), None)
 
+            if (run_id is None):
+                wandb.init(project=self.wandb_project_name, name=("Epoch_" + str(self.epoch)))
+            else:
+                wandb.init(project=self.wandb_project_name, id=run_id, resume="must")
+
+            wandb.watch(self.model)        
 
         self.model.train()
         header = f"Epoch: [{self.epoch}]"
@@ -68,64 +107,91 @@ class FasterModel:
                 self.optimizer, start_factor=warmup_factor, total_iters=warmup_iters
             )
         batches_since_last_save = 0
-        for batch_idx, (images, targets) in enumerate(self.metric_logger.log_every(data_loader, print_freq, header, resume_index=self.last_batch)):
+        
+        try:
+            for batch_idx, (images, targets) in enumerate(self.metric_logger.log_every(data_loader, print_freq, header, resume_index=self.last_batch)):
 
-            if batch_idx <= self.last_batch:
+                if batch_idx <= self.last_batch:
+                    if lr_scheduler is not None:
+                        lr_scheduler.step()
+                    continue
+
+                images = list(image.to(self.device) for image in images)
+                targets = [{k: v.to(self.device) for k, v in t.items()} for t in targets]
+
+                #For CTRL+C handling
+                self.current_images = images
+                self.current_targets = targets
+
+                with torch.cuda.amp.autocast(enabled=scaler is not None):
+                    loss_dict = self.model(images, targets)
+                    losses = sum(loss for loss in loss_dict.values())
+
+                # reduce losses over all GPUs for logging purposes
+                loss_dict_reduced = utils.reduce_dict(loss_dict)
+                losses_reduced = sum(loss for loss in loss_dict_reduced.values())
+
+                loss_value = losses_reduced.item()
+
+                self.writer.add_scalar('loss/train', loss_value, global_step=batch_idx)
+                self.writer_all_epoch.add_scalar('loss/train', loss_value, global_step= (batch_idx + len(data_loader) * self.epoch))
+                wandb.log({"loss": loss_value})
+
+                if not math.isfinite(loss_value):
+                    print(f"Loss is {loss_value}, stopping training")
+                    print(loss_dict_reduced)
+                    sys.exit(1)
+
+                self.optimizer.zero_grad()
+                if scaler is not None:
+                    scaler.scale(losses).backward()
+                    scaler.step(self.optimizer)
+                    scaler.update()
+                else:
+                    losses.backward()
+                    self.optimizer.step()
+
                 if lr_scheduler is not None:
                     lr_scheduler.step()
-                continue
 
-            images = list(image.to(self.device) for image in images)
-            targets = [{k: v.to(self.device) for k, v in t.items()} for t in targets]
-            with torch.cuda.amp.autocast(enabled=scaler is not None):
-                loss_dict = self.model(images, targets)
-                losses = sum(loss for loss in loss_dict.values())
+                self.metric_logger.update(loss=losses_reduced, **loss_dict_reduced)
+                self.metric_logger.update(lr=self.optimizer.param_groups[0]["lr"])
 
-            # reduce losses over all GPUs for logging purposes
-            loss_dict_reduced = utils.reduce_dict(loss_dict)
-            losses_reduced = sum(loss for loss in loss_dict_reduced.values())
+                self.last_batch = batch_idx
 
-            loss_value = losses_reduced.item()
+                if save_freq is not None:
+                    batches_since_last_save += 1
+                    if batches_since_last_save >= save_freq:
+                        self.save_model()
+                        batches_since_last_save = 0   
+                
+                del images
+                del targets
+                torch.cuda.empty_cache()
 
-            self.writer.add_scalar('loss/train', loss_value, global_step=batch_idx)
-            self.writer.flush()
-
-            if not math.isfinite(loss_value):
-                print(f"Loss is {loss_value}, stopping training")
-                print(loss_dict_reduced)
-                sys.exit(1)
-
-            self.optimizer.zero_grad()
-            if scaler is not None:
-                scaler.scale(losses).backward()
-                scaler.step(self.optimizer)
-                scaler.update()
-            else:
-                losses.backward()
-                self.optimizer.step()
-
-            if lr_scheduler is not None:
-                lr_scheduler.step()
-
-            self.metric_logger.update(loss=losses_reduced, **loss_dict_reduced)
-            self.metric_logger.update(lr=self.optimizer.param_groups[0]["lr"])
-
-            self.last_batch = batch_idx
-
-            if save_freq is not None:
-                batches_since_last_save += 1
-                if batches_since_last_save >= save_freq:
-                    self.save_model()
-                    batches_since_last_save = 0   
-            
-            del images
-            del targets
+                #for CTRL+C handling
+                self.current_images = None
+                self.current_targets = None
+        except KeyboardInterrupt:
+            print("\nCtrl+C pressed. Performing cleanup...")
+            del self.current_images
+            del self.current_targets
             torch.cuda.empty_cache()
+            
+            self.writer.close()
+            self.writer_all_epoch.close()
+
+            self.save_model()
+            wandb.finish()
+
+            sys.exit(0)
 
 
         self.epoch += 1
         self.last_batch = -1
         self.save_model()
+        self.writer.close()
+        wandb.finish()
         self.metric_logger = utils.MetricLogger(delimiter="  ")
         self.metric_logger.add_meter("lr", utils.SmoothedValue(window_size=1, fmt="{value:.6f}"))
         return self.metric_logger
