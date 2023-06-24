@@ -70,7 +70,7 @@ class FasterModel:
 
         if self.wandb_logging:  # magari mettere controllo sugli altri campi obbligatori
             wandb.login(key=self.wandb_api_key)
-            self.wandb_api = wandb.Api()
+            
             
 
     def train(self, data_loader, print_freq, scaler=None, save_freq=None):
@@ -85,6 +85,8 @@ class FasterModel:
             self.tensorboard_logs_path + "/All_Epochs")
 
         if self.wandb_logging:
+            self.wandb_api = wandb.Api()
+            
             # Search for the project in the entity
             self.projects = self.wandb_api.projects(self.wandb_entity)
             self.project_exists = any(
