@@ -51,8 +51,7 @@ class FasterModel:
         else:
             self.device = torch.device("cpu")
 
-        self.model = torchvision.models.detection.fasterrcnn_resnet50_fpn(
-            pretrained=True)
+        self.model = torchvision.models.detection.fasterrcnn_resnet50_fpn(weights='DEFAULT')
         self.model.to(self.device)
         self.params = [p for p in self.model.parameters() if p.requires_grad]
         self.optimizer = torch.optim.SGD(
@@ -320,6 +319,7 @@ class FasterModel:
         metric_logger = utils.MetricLogger(delimiter="  ")
         header = "Test:"
 
+        #Convert the dataset into a COCO dataset format
         coco = get_coco_api_from_dataset(data_loader.dataset)
         iou_types = self._get_iou_types()
         coco_evaluator = CocoEvaluator(coco, iou_types)
@@ -336,8 +336,11 @@ class FasterModel:
                        for t in outputs]
             model_time = time.time() - model_time
 
+            #Dictionary containg the predictions for each image.
+            #The key is the image_id and the value is the prediction
             res = {target["image_id"].item(): output for target,
                    output in zip(targets, outputs)}
+            
             evaluator_time = time.time()
             coco_evaluator.update(res)
             evaluator_time = time.time() - evaluator_time
@@ -356,9 +359,36 @@ class FasterModel:
         # accumulate predictions from all images
         coco_evaluator.accumulate()
         coco_evaluator.summarize()
+
+        print("Max detects")
+        print(coco_evaluator.coco_eval['bbox'].eval['precision'][0, 0, 0, 0, 1])
+
+
+        #[10, 101, 5, 4, 3]
+        #[T x R  x K xA xM]
+        #A = 4 tipi di aree
+        #M = 3 treshold max detections
+
+        #K = 5 tipi di categorie
+        #R = 101 recall thresholds for evaluation
+        #T = 10 IoU thresholds for evaluation
+
+        #idea: consideriamo coco_evaluator.coco_eval['bbox'].eval['precision']
+        #E' un numpy array di 5 dimensioni (vedi sopra)
+        #La terza dimensione rappresenta la classe
+        #Possiamo rendere -1 tutti i suoi elementi che non corrispondono alla classe
+        #che ci interessa, di questo modo possiamo chiamare co_evaluator.coco_eval['bbox'].summarize()
+        #che farà tutto come al solito, ma filtrerà gli elementi che non sono maggiori di -1
+
+
+
+
         torch.set_num_threads(n_threads)
         return coco_evaluator
 
+
+    #Return a list containing all the types of IOU that are supported
+    #by the model. (In our case only bbox)
     def _get_iou_types(self):
         model_without_ddp = self.model
         if isinstance(self.model, torch.nn.parallel.DistributedDataParallel):
@@ -368,4 +398,5 @@ class FasterModel:
             iou_types.append("segm")
         if isinstance(model_without_ddp, torchvision.models.detection.KeypointRCNN):
             iou_types.append("keypoints")
+        print("IOU types: ", iou_types)
         return iou_types

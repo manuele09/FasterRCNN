@@ -40,7 +40,7 @@ if (real_dataset):
     list_path = image_base_path + "/train/list.txt"
     dir_to_mantain = 1
     train_list = modify_list(list_path, dir_to_mantain, image_base_path)
-    dataset = RealDataset(image_base_path, images_list=train_list, transform=transform, start_index=3)
+    dataset = RealDataset(image_base_path, images_list=train_list, transform=transform, start_index=108)
 elif (virtual_dataset):
     image_base_path = base_path + "/virtual_dataset"
     list_path = image_base_path + "/train.virtual.txt"
@@ -57,9 +57,9 @@ dataloader = DataLoader(dataset, batch_size=BATCH_SIZE, num_workers=NUM_WORKERS,
 # pin_memory=True
 
 model = FasterModel(dataloader, base_path)
-model.load_model(0, 2)
-model.train(1, save_freq=1)
+# model.load_model(0, 2)
+# model.train(1, save_freq=1)
 
-# model.evaluate(dataloader)
+model.evaluate(dataloader)
 
 
