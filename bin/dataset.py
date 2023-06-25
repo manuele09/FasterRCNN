@@ -202,16 +202,16 @@ class RealDataset(Dataset):
 
     def __getitem__(self, index):
 
-        worker_info = torch.utils.data.get_worker_info()
-        if worker_info:
-            worker_id = worker_info.id  # beetween 0 and num_workers-1
+        # worker_info = torch.utils.data.get_worker_info()
+        # if worker_info:
+        #     worker_id = worker_info.id  # beetween 0 and num_workers-1
 
         # self.lock.acquire()
         # print(f"Woker {worker_id}: Acquired lock in {index}\n")
         # time.sleep(10)
         # self.lock.release()
 
-        if self.download_virtual_dataset and worker_id == 0:
+        if self.download_virtual_dataset:
 
             # Find the directory that contains the image
             current_dir = self.images_list[index].split(os.path.sep)[-3]
@@ -231,7 +231,7 @@ class RealDataset(Dataset):
             # If current_dir is not downloaded, download it
             if not current_dir_downloaded:
                 self.download_and_extract(current_dir)
-            self.ready = True
+            # self.ready = True
             print("Dataset ready")
 
         # print("Prima "+ str(index))
@@ -239,12 +239,13 @@ class RealDataset(Dataset):
         #     print("Waiting for the main process to download the dataset... " + str(index))
         #     time.sleep(1)
         # print("Dopo " + str(index))
+
         # From here is the same if the dataset was downloaded or not
 
         # Circular indexing to avoid index out of range
         if (index >= len(self.images_list)):
-            return None
-            # return self.__getitem__(index % len(self.images_list))
+            #return None
+            return self.__getitem__(index % len(self.images_list))
         try:
             im = Image.open(self.images_list[index]).convert('RGB')
         # If the image is corrupted, delete it and return the next one
