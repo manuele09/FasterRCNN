@@ -107,8 +107,6 @@ class RealDataset(Dataset):
         self.download_virtual_dataset = download_virtual_dataset
         self.images_list = images_list
         self.transform = transform
-        self.ready = False
-        self.lock = threading.Lock()
         self.start_index = start_index
 
 
@@ -208,14 +206,7 @@ class RealDataset(Dataset):
 
     def __getitem__(self, index):
 
-        # worker_info = torch.utils.data.get_worker_info()
-        # if worker_info:
-        #     worker_id = worker_info.id  # beetween 0 and num_workers-1
 
-        # self.lock.acquire()
-        # print(f"Woker {worker_id}: Acquired lock in {index}\n")
-        # time.sleep(10)
-        # self.lock.release()
 
         if self.download_virtual_dataset:
 
@@ -237,14 +228,7 @@ class RealDataset(Dataset):
             # If current_dir is not downloaded, download it
             if not current_dir_downloaded:
                 self.download_and_extract(current_dir)
-            # self.ready = True
-            print("Dataset ready")
 
-        # print("Prima "+ str(index))
-        # while(self.download_virtual_dataset and not self.ready):
-        #     print("Waiting for the main process to download the dataset... " + str(index))
-        #     time.sleep(1)
-        # print("Dopo " + str(index))
 
         # From here is the same if the dataset was downloaded or not
 

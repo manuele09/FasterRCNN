@@ -45,7 +45,7 @@ class FasterModel:
     # wandb_entity: string (the entity of the wandb project)
     # wandb_project: string (the name of the wandb project)
 
-    def __init__(self, data_loader, logging_base_path=".", wandb_logging=None, load_dict=None, save_memory=False, ):
+    def __init__(self, data_loader, logging_base_path=".", wandb_logging=None, load_dict=None, save_memory=False):
 
         self.data_loader = data_loader
         self.logging_base_path = logging_base_path + "/FasterRCNN_Logging"
