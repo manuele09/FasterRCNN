@@ -46,7 +46,12 @@ class FasterModel:
     # wandb_project: string (the name of the wandb project)
 
     def __init__(self, data_loader, logging_base_path=".", wandb_logging=None, load_dict=None, save_memory=False):
+        self.wandb_logging = wandb_logging
+        self.save_memory = save_memory
 
+        if self.wandb_logging is not None:  
+            wandb.login(key=self.wandb_logging["wandb_api_key"])
+            
         self.data_loader = data_loader
         self.logging_base_path = logging_base_path + "/FasterRCNN_Logging"
         self.tensorboard_logs_path = self.logging_base_path + "/Tensorboard_logs"
@@ -95,11 +100,7 @@ class FasterModel:
         self.current_images = None
         self.current_targets = None
 
-        self.wandb_logging = wandb_logging
-        self.save_memory = save_memory
 
-        if self.wandb_logging is not None:  
-            wandb.login(key=self.wandb_logging["wandb_api_key"])
 
     #ATTENZIONE: Una volta che il training è stato interrotto e lo si vuole riprendere
     #bisogna creare un NUOVO Dataset che escluda le immagini già processate.
