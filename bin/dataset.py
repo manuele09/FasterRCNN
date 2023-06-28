@@ -179,6 +179,12 @@ class RealDataset(Dataset):
             return
         self.images_list = self.images_list[self.start_index:]
 
+    def skip_items(self, start_index):
+        self.images_list = self.images_list[start_index:]
+        print(f"Skipping {start_index} items")
+
+
+
     # Downloads the file_name.zip from the shared link, extracts it in the base_path
     # and deletes the zip file to save space
     def download_and_extract(self, file_name):

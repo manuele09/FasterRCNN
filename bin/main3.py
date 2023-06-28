@@ -27,7 +27,8 @@ optimizer = optim.SGD(model.parameters(), lr=0.1)
 optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
 warmup_factor = 1.0 / 1000
 warmup_iters = min(1000, len(train_loader) - 1)
-scheduler = torch.optim.lr_scheduler.LinearLR(optimizer, start_factor=warmup_factor, total_iters=warmup_iters, last_epoch=checkpoint['scheduler_state_dict']['last_epoch']-1)
+scheduler = torch.optim.lr_scheduler.LinearLR(optimizer, start_factor=0.5, end_factor=1, total_iters=warmup_iters)
+# scheduler = torch.optim.lr_scheduler.LinearLR(optimizer, start_factor=0.0556, total_iters=warmup_iters, last_epoch=checkpoint['scheduler_state_dict']['last_epoch']-1)
 
 
 

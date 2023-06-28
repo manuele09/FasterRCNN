@@ -1,5 +1,5 @@
 from dataset import *
-#from custom_utils import *
+# from custom_utils import *
 from averager import Averager
 from model import FasterModel
 from utils import collate_fn
@@ -24,15 +24,15 @@ import sys
 
 # before doing above steps install cython
 
-BATCH_SIZE = 1 # increase / decrease according to GPU memeory
-NUM_EPOCHS = 1 # number of epochs to train for
+BATCH_SIZE = 1  # increase / decrease according to GPU memeory
+NUM_EPOCHS = 1  # number of epochs to train for
 NUM_WORKERS = 1
 
 base_path = ".."
 
-real_dataset=True
-virtual_dataset=False
-download_virtual=False
+real_dataset = True
+virtual_dataset = False
+download_virtual = False
 
 transform = transforms.Compose([transforms.ToTensor()])
 if (real_dataset):
@@ -40,26 +40,44 @@ if (real_dataset):
     list_path = image_base_path + "/train/list.txt"
     dir_to_mantain = 1
     train_list = modify_list(list_path, dir_to_mantain, image_base_path)
-    dataset = RealDataset(image_base_path, images_list=train_list, transform=transform, start_index=108)
+    dataset = RealDataset(
+        image_base_path, images_list=train_list, transform=transform)
 elif (virtual_dataset):
     image_base_path = base_path + "/virtual_dataset"
     list_path = image_base_path + "/train.virtual.txt"
     dir_to_mantain = 2
     train_list = modify_list(list_path, dir_to_mantain, image_base_path)
-    dataset = RealDataset(image_base_path, images_list=train_list, transform=transform)
+    dataset = RealDataset(
+        image_base_path, images_list=train_list, transform=transform)
 else:
     image_base_path = base_path + "/virtual_dataset"
-    dataset = RealDataset(image_base_path, list_file_name="train.virtual.txt", transform=transform, download_virtual_dataset=True)
+    dataset = RealDataset(image_base_path, list_file_name="train.virtual.txt",
+                          transform=transform, download_virtual_dataset=True)
 
-#dataset.show_bounding(1)
+# dataset.show_bounding(0)
 
-dataloader = DataLoader(dataset, batch_size=BATCH_SIZE, num_workers=NUM_WORKERS, collate_fn=collate_fn)
+# drop_last=True
 # pin_memory=True
+# shuffle=True
+dataloader = DataLoader(dataset, batch_size=BATCH_SIZE,
+                        num_workers=NUM_WORKERS, collate_fn=collate_fn)
 
-model = FasterModel(dataloader, base_path)
-# model.load_model(0, 2)
-# model.train(1, save_freq=1)
+if False:
+    resume_epoch = 0
+    resume_batch = 4  # Non è il batch n, ma il batch n+1
+    
+    dataset.skip_items(resume_batch*BATCH_SIZE + 1)
 
-model.evaluate(dataloader)
+    dataloader = DataLoader(dataset, batch_size=BATCH_SIZE,
+                            num_workers=NUM_WORKERS, collate_fn=collate_fn)
+    load_dict = {"load_from_wandb": False,
+                "epoch": 0,
+                "batch": 4,
+                "path": None}
+else:
+    load_dict = None
+model = FasterModel(dataloader, base_path, load_dict=load_dict)
 
+model.train(print_freq=1, save_freq=1)
 
+# model.evaluate(dataloader)

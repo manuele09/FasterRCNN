@@ -19,13 +19,11 @@ checkpoint_path = "checkpoint.pth"
 train_dataset = torch.randn(100, 10)
 train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=10, shuffle=True)
 
+
+
 # Initialize the network, optimizer, and scheduler
 model = MyNetwork()
 optimizer = optim.SGD(model.parameters(), lr=0.1)
-
-warmup_factor = 1.0 / 1000
-warmup_iters = min(1000, len(train_loader) - 1)
-scheduler = torch.optim.lr_scheduler.LinearLR(optimizer, start_factor=warmup_factor, total_iters=warmup_iters)
 
 # Training loop
 for epoch in range(1):
@@ -43,19 +41,10 @@ for epoch in range(1):
         optimizer.step()
 
         # Step the scheduler
-        scheduler.step()
 
         print(f"Epoch [{epoch}/{10}], Batch [{batch_idx}/{len(train_loader)}], "
-              f"Loss: {loss.item()}, Learning Rate: {scheduler.get_last_lr()[0]}")
+              f"Loss: {loss.item()}")
         
-        torch.save({
-        'epoch': epoch,
-        'model_state_dict': model.state_dict(),
-        'optimizer_state_dict': optimizer.state_dict(),
-        'scheduler_state_dict': scheduler.state_dict()
-    }, checkpoint_path)
-        if batch_idx == 4:
-            break
 
 print("Training complete.")
 
