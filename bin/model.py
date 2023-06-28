@@ -133,17 +133,17 @@ class FasterModel:
                 # If the run doesn't exist, create it
                 if (run_id is None):
                     print("Wandb: creating new run for epoch " + str(self.epoch))
-                    wandb.init(project=self.wandb_project_name,
+                    wandb.init(project=self.wandb_logging["wandb_project"],
                                name=("Epoch_" + str(self.epoch)), sync_tensorboard=True)
                 # If the run exists, resume it
                 else:
                     print("Wandb: resuming run for epoch " + str(self.epoch))
-                    wandb.init(project=self.wandb_project_name,
+                    wandb.init(project=self.wandb_logging["wandb_project"],
                                id=run_id, resume="must", sync_tensorboard=True)
             # If the project doesn't exist, create it
             else:
                 print("Wandb: creating new project and run for epoch " + str(self.epoch))
-                wandb.init(project=self.wandb_project_name,
+                wandb.init(project=self.wandb_logging["wandb_project"],
                            name=("Epoch_" + str(self.epoch)),
                            config={
                                "learning_rate": 0.001,
