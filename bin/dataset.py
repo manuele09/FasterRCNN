@@ -109,44 +109,65 @@ class RealDataset(Dataset):
         self.transform = transform
         self.start_index = start_index
 
-
         self.str_label = ["No Elmet", "Elmet", "Welding Mask",
                           "Ear Protection", "No Gilet", "Gilet", "Person"]
         self.colors = ['red', 'blue', 'green',
                        'orange', 'purple', 'pink', "brown"]
-        self.dirs_ids = {"train.virtual.txt": "ESRgAfYQkchGj4Hjfl_lZLMBoLNTrhkHwPJzYBGsrt4SeA",
-                         "valid.virtual.txt": "EXRzg_URR-ZEoYMpYH6W8R4BJWUVq4HMKZe-bvoq8ngUXw",
-                         "27_03_19_19_15_32": "EVujRKjyKSJDiQ_8b-46r7sBSoY7yMre_UiHVXy4W3c14w",
-                         "27_03_19_19_47_44": "EVTdTdDHT6FPkTAh-zK2JaoBQFNXpsHJfiKtOlxlga5dDQ",
-                         "27_03_19_20_16_23":  "EZnnM9VW7qxCpuOoMd3DD70BTxf3qTUSzSFo1ItAcpzvVQ",
-                         "27_03_19_20_43_51": "EbFMsp8MSwlDgXkS0EguZkwBhw5DCgi2nO3yTtjl426WMQ",
-                         "27_03_19_21_09_00": "EUTcg4dh9G1Ji1QSQ34MTIIBBavjnOQYRAA0RsEx_Z4VqA",
-                         "29_03_19_03_39_42": "ESDmLETIsShNlE2oEJI1D2QB2trOJCjWsJsc3O-dssu_ag",
-                         "29_03_19_04_06_35": "EdoGdVHUsLRJiMxh0a1VBBEBrYeC2eX0Elvs1Jhq_b2gmw",
-                         "29_03_19_04_34_54": "Ed4ZNXeY9a9HgY4T6MJJ7f0ByGK1EwbQmTxI8m6ijxDiBQ",
-                         "29_03_19_05_01_34": "Ee9SYf6BuCxJiCpNbdXMTxoBEVHGA66aSHfsdmS_leHswQ",
-                         "29_03_19_05_27_16": "Ed5KYH5YpX9BuS-5L4XDI9UBslYiXpRFs_UR8G_lBeQZzA",
-                         "29_03_19_05_51_06": "EUi2CAMAvChJhPgQ0WNZGSoBGkuF0RQtD-4JXkhdJgNrEg",
-                         "29_03_19_06_18_10": "EVnFqP7dx4VDnQ8XhiCa3W8B7VnESrnCYDghjrfGWU6xYQ",
-                         "29_03_19_06_49_23": "EZI6BtKNLKNPqvXrH1WV-yQBX8KE-aAYfxaYqAZwT2048A",
-                         "29_03_19_07_14_43": "EcrxUMpbayNLgMFvdH99rcQBCPedcn6QKavKeecMAPOGDA",
-                         "29_03_19_07_45_24": "ERFr_pA4MRRIiemPRdMcoJwBuRjXdg62UYsgm9NAR1dDOA",
-                         "29_03_19_08_12_28": "EWltsNr9UHdJsiC88YFQdmoB76AwtIFy6wea4oHZMRCNTw",
-                         "29_03_19_08_39_27": "EaQFe7l04HxMpqzaYsxxQdUBLAtAKfESjI5jHgOg8Yz8PQ",
-                         "29_03_19_09_05_50": "EZC6nbmQuz5OjFBKaTIoeRMBDSrtW6bNG-HNbB-F8DV3_Q",
-                         "29_03_19_11_23_30": "EdDkwmpyxRpBqyCRbW3_75ABg4rPucqeMs-3afhEkEE7fA",
-                         "29_03_19_11_48_52": "ERkF1A2H8NZPrIXx2EIZcyoBw10Q9k2QG2gIzvmMnxUXTA",
-                         "29_03_19_12_11_24": "Ec51v9AKNTRPo1DI-YFLkrwBZptCy3XcPG-zZXHGHPYwsA",
-                         "29_03_19_12_36_41": "ET5MAzxCLdRApgu-Yd4QSIsBIUIK2ZO1gc5VCgPpyC2hVw",
-                         "29_03_19_13_16_22": "Eb6aTsYREItFrJb0kcbIbYEBWNHdlihTP7GTKOdgXC18Hg",
-                         "29_03_19_13_40_24": "Ec8f5L291nBDkB6Z8XdbuZQB5fzAu9Rvb_3b0j8331ihNg",
-                         "29_03_19_14_05_16": "EW0WMufbzspGim2ktl1jRosBwgeVU351rGaNTe4uy4VgRw",
-                         "29_03_19_14_34_53": "EShJyt7_ELVOjxxmje0tYK8BImM7XYIlnLXaBZLm0f5iCQ",
-                         "29_03_19_15_07_02": "EfjQr--s7u1NrkA13UNBZisBk596wqeFYFAr9qshRuefsw",
-                         "29_03_19_15_39_29": "EXxy-jkcuLtHpR5vWX2y3ukBctruwvFqO9KNb2PshLSuow",
-                         "29_03_19_16_06_55": "EQ1oEyDMhs9Au2AtS9wyIU4BnWKFxAg6UJyL8oD8I-8y2w",
-                         "29_03_19_16_29_52": "EdKf-fzUaxxPk8wE_lykl2wBkec_JR4gjEtXpjdzuIl3Qw"}
+        # self.dirs_ids = {"train.virtual.txt": "ESRgAfYQkchGj4Hjfl_lZLMBoLNTrhkHwPJzYBGsrt4SeA",
+        #                  "valid.virtual.txt": "EXRzg_URR-ZEoYMpYH6W8R4BJWUVq4HMKZe-bvoq8ngUXw",
+        #                  "27_03_19_19_15_32": "EVujRKjyKSJDiQ_8b-46r7sBSoY7yMre_UiHVXy4W3c14w",
+        #                  "27_03_19_19_47_44": "EVTdTdDHT6FPkTAh-zK2JaoBQFNXpsHJfiKtOlxlga5dDQ",
+        #                  "27_03_19_20_16_23":  "EZnnM9VW7qxCpuOoMd3DD70BTxf3qTUSzSFo1ItAcpzvVQ",
+        #                  "27_03_19_20_43_51": "EbFMsp8MSwlDgXkS0EguZkwBhw5DCgi2nO3yTtjl426WMQ",
+        #                  "27_03_19_21_09_00": "EUTcg4dh9G1Ji1QSQ34MTIIBBavjnOQYRAA0RsEx_Z4VqA",
+        #                  "29_03_19_03_39_42": "ESDmLETIsShNlE2oEJI1D2QB2trOJCjWsJsc3O-dssu_ag",
+        #                  "29_03_19_04_06_35": "EdoGdVHUsLRJiMxh0a1VBBEBrYeC2eX0Elvs1Jhq_b2gmw",
+        #                  "29_03_19_04_34_54": "Ed4ZNXeY9a9HgY4T6MJJ7f0ByGK1EwbQmTxI8m6ijxDiBQ",
+        #                  "29_03_19_05_01_34": "Ee9SYf6BuCxJiCpNbdXMTxoBEVHGA66aSHfsdmS_leHswQ",
+        #                  "29_03_19_05_27_16": "Ed5KYH5YpX9BuS-5L4XDI9UBslYiXpRFs_UR8G_lBeQZzA",
+        #                  "29_03_19_05_51_06": "EUi2CAMAvChJhPgQ0WNZGSoBGkuF0RQtD-4JXkhdJgNrEg",
+        #                  "29_03_19_06_18_10": "EVnFqP7dx4VDnQ8XhiCa3W8B7VnESrnCYDghjrfGWU6xYQ",
+        #                  "29_03_19_06_49_23": "EZI6BtKNLKNPqvXrH1WV-yQBX8KE-aAYfxaYqAZwT2048A",
+        #                  "29_03_19_07_14_43": "EcrxUMpbayNLgMFvdH99rcQBCPedcn6QKavKeecMAPOGDA",
+        #                  "29_03_19_07_45_24": "ERFr_pA4MRRIiemPRdMcoJwBuRjXdg62UYsgm9NAR1dDOA",
+        #                  "29_03_19_08_12_28": "EWltsNr9UHdJsiC88YFQdmoB76AwtIFy6wea4oHZMRCNTw",
+        #                  "29_03_19_08_39_27": "EaQFe7l04HxMpqzaYsxxQdUBLAtAKfESjI5jHgOg8Yz8PQ",
+        #                  "29_03_19_09_05_50": "EZC6nbmQuz5OjFBKaTIoeRMBDSrtW6bNG-HNbB-F8DV3_Q",
+        #                  "29_03_19_11_23_30": "EdDkwmpyxRpBqyCRbW3_75ABg4rPucqeMs-3afhEkEE7fA",
+        #                  "29_03_19_11_48_52": "ERkF1A2H8NZPrIXx2EIZcyoBw10Q9k2QG2gIzvmMnxUXTA",
+        #                  "29_03_19_12_11_24": "Ec51v9AKNTRPo1DI-YFLkrwBZptCy3XcPG-zZXHGHPYwsA",
+        #                  "29_03_19_12_36_41": "ET5MAzxCLdRApgu-Yd4QSIsBIUIK2ZO1gc5VCgPpyC2hVw",
+        #                  "29_03_19_13_16_22": "Eb6aTsYREItFrJb0kcbIbYEBWNHdlihTP7GTKOdgXC18Hg",
+        #                  "29_03_19_13_40_24": "Ec8f5L291nBDkB6Z8XdbuZQB5fzAu9Rvb_3b0j8331ihNg",
+        #                  "29_03_19_14_05_16": "EW0WMufbzspGim2ktl1jRosBwgeVU351rGaNTe4uy4VgRw",
+        #                  "29_03_19_14_34_53": "EShJyt7_ELVOjxxmje0tYK8BImM7XYIlnLXaBZLm0f5iCQ",
+        #                  "29_03_19_15_07_02": "EfjQr--s7u1NrkA13UNBZisBk596wqeFYFAr9qshRuefsw",
+        #                  "29_03_19_15_39_29": "EXxy-jkcuLtHpR5vWX2y3ukBctruwvFqO9KNb2PshLSuow",
+        #                  "29_03_19_16_06_55": "EQ1oEyDMhs9Au2AtS9wyIU4BnWKFxAg6UJyL8oD8I-8y2w",
+        #                  "29_03_19_16_29_52": "EdKf-fzUaxxPk8wE_lykl2wBkec_JR4gjEtXpjdzuIl3Qw"}
 
+        self.dirs_ids = {"train.virtual.txt": "ESRH0_-lm7BKr4jRUZRyhQgBlStl96JNnQ1mpKn2mhXw8g",
+                         "group_0": "EcbhRUBR121Aj1YFpn2gHFYBRMLYZPK54yApFLItwP_ENQ",
+                         "group_1": "Eb2AMAT4YCFElWKoSMrF1hQBRJatTRyfx7O2o9jWJaIHOQ",
+                         "group_2": "ESgVcp4Rlb5JkN6q5XJrkawBAuT7jdKrKENZ6th9fwQhQQ",
+                         "group_3": "EVCQlcnhon9AqF2NyFy45xIBMxF6LPwb0YkHrznaccW_7Q",
+                         "group_4": "Ee0i3inCX-lEuZ4LxIfnmZABiAPEZO49lTAlS621F4Jw2A",
+                         "group_5": "EVrxyjh_JvRAqQYFHQWAb3wBEsfInkvBc_arM5HYedgy3g",
+                         "group_6": "ERpokk97ujZMvFmK8NFBJsEBjtUPG9aRdt96xT3moKUgzQ",
+                         "group_7": "EdaLZYet5bdAvEnGR8EAgvgBUAj0UShQdxPjvKqvw4v8mQ",
+                         "group_8": "EdBFoU4fDlxElQKFFmyHNBwBjx3LBPK8BZHjZxtHSFgtLQ",
+                         "group_9": "EeMvKgTp3hZCmeGegi8AtDABy7k-vzvQ3mZ8egwJ1bNjcg",
+                         "group_10": "EcqT7O3_t8VLsIupkkvcGF8BmUsr71TMZTX4B_lT9EDbEw",
+                         "group_11": "ERi4wPYKNQJLrpykVe0_PmgBu7nxpnNTY25-Qd7lXrIOHw",
+                         "group_12": "ESRGnsfqXS9Mg8blQEzQGZMBI6miB4aIZ2Pwn5e8I2Ig9w",
+                         "group_13": "EQVqdP85G4JFg0SBJBRKl28BnzUUaTGa4FYLjScHpmV-Hw",
+                         "group_14": "ESH4QEDWwWNDkO8pf6clrmoB_7oo5-eM-FhX-_dGjV_Nvg",
+                         "group_15": "EV4OMpAPa-VIrlEAuJHm7hAB059DYzJhoYtjZFr9q0buug",
+                         "group_16": "EYH7fcZqJpFEh77EN_7GkZ0BgZXi_v_84Hr31mgiMhUGcg",
+                         "group_17": "Eef5zdT39BBMuMZaRrjkgjgB5M9p1QMN4y3W6uKihqm3Ew",
+                         "group_18": "EQRWbL7gH5xDrjsdUkdU1iIBepajO8hV2Cazvyf0EVY7pg",
+                         "group_19": "ETWav0txjSxFvbr0m4Nl_bcBpPlJibfaXTjmbsjTMiOlRg"
+                         }
         if self.download_virtual_dataset:
             if list_file_name is None:
                 print("Error: list_file_name is None")
@@ -156,14 +177,14 @@ class RealDataset(Dataset):
             if not os.path.exists(self.base_path):
                 print("Creating base_path")
                 os.makedirs(self.base_path)
-                self.download_and_extract(list_file_name)
+                self.download_and_extract(list_file_name, is_dir=False)
             # if the base_path exists but the list_file doesn't, download it
             if find_path(list_file_name, self.base_path) is None:
-                self.download_and_extract(list_file_name)
+                self.download_and_extract(list_file_name, is_dir=False)
 
             # finds the list file path, modifies the relative paths in the list.
             self.images_list = modify_list(
-                find_path(list_file_name, self.base_path), 3, self.base_path)
+                find_path(list_file_name, self.base_path), 1, self.base_path)
 
             # it is the path that will contain all the folders of the virtual dataset: 27_03_19_19_15_32, 27_03_19_19_47_44, ...
             self.full_path = os.path.join(
@@ -181,11 +202,10 @@ class RealDataset(Dataset):
         self.images_list = self.images_list[start_index:]
         print(f"Skipping {start_index} items")
 
-
-
     # Downloads the file_name.zip from the shared link, extracts it in the base_path
     # and deletes the zip file to save space
-    def download_and_extract(self, file_name):
+
+    def download_and_extract(self, file_name, is_dir):
         # Download the zip
         print(f"Downloading {file_name}.zip ...")
         file_id = self.dirs_ids[file_name]
@@ -197,16 +217,18 @@ class RealDataset(Dataset):
 
         # Extract the zip
         print(f"Unzipping {file_name}.zip ...")
+        if is_dir:
+          save_path = os.path.join(self.base_path, file_name)
+        else:
+          save_path = self.base_path
         with zipfile.ZipFile(out_path, 'r') as zip_ref:
-            zip_ref.extractall(self.base_path)
+            zip_ref.extractall(save_path)
         print("Unzip completed.")
 
         # Delete the zip
         os.remove(out_path)
 
     def __getitem__(self, index):
-
-
 
         if self.download_virtual_dataset:
 
@@ -227,14 +249,13 @@ class RealDataset(Dataset):
 
             # If current_dir is not downloaded, download it
             if not current_dir_downloaded:
-                self.download_and_extract(current_dir)
-
+                self.download_and_extract(current_dir, is_dir=True)
 
         # From here is the same if the dataset was downloaded or not
 
         # Circular indexing to avoid index out of range
         if (index >= len(self.images_list)):
-            #return None
+            # return None
             return self.__getitem__(index % len(self.images_list))
         try:
             im = Image.open(self.images_list[index]).convert('RGB')
