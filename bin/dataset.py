@@ -233,7 +233,7 @@ class RealDataset(Dataset):
         if self.download_virtual_dataset:
 
             # Find the directory that contains the image
-            current_dir = self.images_list[index].split(os.path.sep)[-3]
+            current_dir = self.images_list[index].split(os.path.sep)[-2]
 
             # Scan the full_path to find all the downloaded directories
             self.downloaded_dirs = scan_path(self.base_path)
