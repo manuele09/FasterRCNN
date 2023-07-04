@@ -236,7 +236,7 @@ class RealDataset(Dataset):
             current_dir = self.images_list[index].split(os.path.sep)[-3]
 
             # Scan the full_path to find all the downloaded directories
-            self.downloaded_dirs = scan_path(self.full_path)
+            self.downloaded_dirs = scan_path(self.base_path)
             # Remove all the directories that are not the current_dir.
             current_dir_downloaded = False
             for i in range(len(self.downloaded_dirs)):
