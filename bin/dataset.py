@@ -147,7 +147,7 @@ class RealDataset(Dataset):
         #                  "29_03_19_16_29_52": "EdKf-fzUaxxPk8wE_lykl2wBkec_JR4gjEtXpjdzuIl3Qw"}
 
         self.dirs_ids = {"train.virtual.txt": "ESRH0_-lm7BKr4jRUZRyhQgBlStl96JNnQ1mpKn2mhXw8g",
-                         "group_0": "EcbhRUBR121Aj1YFpn2gHFYBRMLYZPK54yApFLItwP_ENQ",
+                         "group_0": "ERf726zSyetKpEMBoCgER98BpjOC1DCFxG4JweGMckKRKA",
                          "group_1": "Eb2AMAT4YCFElWKoSMrF1hQBRJatTRyfx7O2o9jWJaIHOQ",
                          "group_2": "ESgVcp4Rlb5JkN6q5XJrkawBAuT7jdKrKENZ6th9fwQhQQ",
                          "group_3": "EVCQlcnhon9AqF2NyFy45xIBMxF6LPwb0YkHrznaccW_7Q",
