@@ -229,6 +229,10 @@ class RealDataset(Dataset):
         os.remove(out_path)
 
     def __getitem__(self, index):
+        # Circular indexing to avoid index out of range
+        if (index >= len(self.images_list)):
+            # return None
+            return self.__getitem__(index % len(self.images_list))
 
         if self.download_virtual_dataset:
 
@@ -253,10 +257,6 @@ class RealDataset(Dataset):
 
         # From here is the same if the dataset was downloaded or not
 
-        # Circular indexing to avoid index out of range
-        if (index >= len(self.images_list)):
-            # return None
-            return self.__getitem__(index % len(self.images_list))
         try:
             im = Image.open(self.images_list[index]).convert('RGB')
         # If the image is corrupted, delete it and return the next one
@@ -265,7 +265,7 @@ class RealDataset(Dataset):
             print(f"Error reading image {self.images_list[index]}: {e}")
             del self.images_list[index]
             return self.__getitem__(index)
-
+        
         # Apply the transformations
         if self.transform is not None:
             im = self.transform(im)
