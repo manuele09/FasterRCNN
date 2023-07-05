@@ -212,7 +212,16 @@ class RealDataset(Dataset):
         out_path = os.path.join(self.base_path, file_name) + ".zip"
         download_url = f"https://studentiunict-my.sharepoint.com/:u:/g/personal/cnnmnl01r09m088w_studium_unict_it/{file_id}?download=1"
         command = f"wget -c --no-check-certificate -O {out_path} {download_url} > /dev/null 2>&1"
-        subprocess.run(command, shell=True)
+        
+        timeout = 120
+        while(True):
+            try:
+                subprocess.run(command, shell=True, timeout=timeout)
+                break
+            except subprocess.TimeoutExpired:
+                print("Timeout expired, retrying...")
+                timeout += 10
+                
         print("Download completed.")
 
         # Extract the zip
