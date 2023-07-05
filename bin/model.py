@@ -317,9 +317,13 @@ class FasterModel:
         if path is None:
             path = self.model_params_path
 
-        diz = torch.load(path + "/epoch_" +
+        #da migliorare
+        if torch.cuda.is_available():
+            diz = torch.load(path + "/epoch_" +
                          str(self.epoch) + "_batch_" + str(self.last_batch) + ".pth")
-
+        else:
+            diz = torch.load(path + "/epoch_" +
+                         str(self.epoch) + "_batch_" + str(self.last_batch) + ".pth", map_location=torch.device('cpu'))
         self.model.load_state_dict(diz['model_state_dict'])
         self.optimizer.load_state_dict = diz['optimizer_state_dict']
 
