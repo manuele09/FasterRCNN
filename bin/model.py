@@ -238,6 +238,43 @@ class FasterModel:
 
         self.epoch += 1
         self.last_batch = 0
+        if self.wandb_logging is not None:
+            wandb.finish()
+            wandb_api = wandb.Api()
+
+            # Search for the project in the entity
+            self.projects = wandb_api.projects(self.wandb_logging["wandb_entity"])
+            self.project_exists = any(
+                p.name == self.wandb_logging["wandb_project"] for p in self.projects)
+
+            # If the project exists...
+            if self.project_exists:
+                # Search for the run in the project
+                self.runs = wandb_api.runs(
+                    self.wandb_logging["wandb_entity"] + "/" + self.wandb_logging["wandb_project"])
+                run_id = next((run.id for run in self.runs if run.name == (
+                    "Epoch_" + str(self.epoch))), None)
+
+                # If the run doesn't exist, create it
+                if (run_id is None):
+                    print("Wandb: creating new run for epoch " + str(self.epoch))
+                    wandb.init(project=self.wandb_logging["wandb_project"],
+                               name=("Epoch_" + str(self.epoch)), sync_tensorboard=True)
+                # If the run exists, resume it
+                else:
+                    print("Wandb: resuming run for epoch " + str(self.epoch))
+                    wandb.init(project=self.wandb_logging["wandb_project"],
+                               id=run_id, resume="must", sync_tensorboard=True)
+            # If the project doesn't exist, create it
+            else:
+                print("Wandb: creating new project and run for epoch " + str(self.epoch))
+                wandb.init(project=self.wandb_logging["wandb_project"],
+                           name=("Epoch_" + str(self.epoch)),
+                           config={
+                               "learning_rate": 0.001,
+                               "architecture": "FasterRCNN",
+                           }, sync_tensorboard=True)
+
         self.save_model()
         self.writer.close()
         if self.wandb_logging:
