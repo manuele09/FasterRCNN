@@ -15,7 +15,6 @@ import signal
 import threading
 import wandb
 import numpy as np
-import torch_xla.core.xla_model as xm
 
 
 
@@ -47,7 +46,7 @@ class FasterModel:
     # wandb_entity: string (the entity of the wandb project)
     # wandb_project: string (the name of the wandb project)
 
-    def __init__(self, data_loader, logging_base_path=".", wandb_logging=None, load_dict=None, save_memory=False, TPU=False):
+    def __init__(self, data_loader, logging_base_path=".", wandb_logging=None, load_dict=None, save_memory=False):
         self.wandb_logging = wandb_logging
         self.save_memory = save_memory
 
@@ -69,14 +68,11 @@ class FasterModel:
         self.epoch = 0
         self.last_batch = 0
 
-        self.TPU = TPU
-        if TPU:
-            self.device = xm.xla_device()
+
+        if torch.cuda.is_available():
+            self.device = torch.device("cuda")
         else:
-            if torch.cuda.is_available():
-                self.device = torch.device("cuda")
-            else:
-                self.device = torch.device("cpu")
+            self.device = torch.device("cpu")
 
         self.model = torchvision.models.detection.fasterrcnn_resnet50_fpn(
             weights='DEFAULT')
@@ -204,8 +200,6 @@ class FasterModel:
                 else:
                     losses.backward()
                     self.optimizer.step()
-                    if self.TPU:
-                        xm.mark_step()
 
                 self.lr_scheduler.step()
 
