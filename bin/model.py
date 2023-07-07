@@ -471,7 +471,7 @@ class FasterModel:
         image = image.unsqueeze(0)
 
         with torch.no_grad():
-            predictions = self.model(image)
+            predictions = self.model(image.to(self.device))
 
         boxes = predictions[0]['boxes']
         labels = predictions[0]['labels']
