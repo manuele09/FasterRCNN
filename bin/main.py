@@ -78,8 +78,9 @@ else:
     load_dict = None
 model = FasterModel(dataloader, base_path, load_dict=load_dict)
 
-model.train(print_freq=1, save_freq=1)
+#model.train(print_freq=1, save_freq=1)
 
 # model.evaluate(dataloader)
+im, target = dataset[1]
 
-
+model.apply_object_detection(im)

@@ -279,6 +279,7 @@ class RealDataset(Dataset):
         if self.transform is not None:
             im = self.transform(im)
 
+
         # Same strategy as before if target is corrupted
         try:
             target = self.read_target_from_file(
@@ -296,7 +297,7 @@ class RealDataset(Dataset):
     def __len__(self):
         return len(self.images_list)
 
-    def show_bounding(self, index):
+    def show_bounding(self, index): 
         image, targets = self[index]
         self.label, self.bounding = targets["labels"], targets["boxes"]
 

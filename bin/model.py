@@ -15,7 +15,9 @@ import signal
 import threading
 import wandb
 import numpy as np
-
+from PIL import Image, ImageDraw
+import matplotlib.pyplot as plt
+import matplotlib.patches as patches
 
 
 class FasterModel:
@@ -50,9 +52,9 @@ class FasterModel:
         self.wandb_logging = wandb_logging
         self.save_memory = save_memory
 
-        if self.wandb_logging is not None:  
+        if self.wandb_logging is not None:
             wandb.login(key=self.wandb_logging["wandb_api_key"])
-            
+
         self.data_loader = data_loader
         self.logging_base_path = logging_base_path + "/FasterRCNN_Logging"
         self.tensorboard_logs_path = self.logging_base_path + "/Tensorboard_logs"
@@ -67,7 +69,6 @@ class FasterModel:
 
         self.epoch = 0
         self.last_batch = 0
-
 
         if torch.cuda.is_available():
             self.device = torch.device("cuda")
@@ -88,7 +89,8 @@ class FasterModel:
             self.lr_scheduler = torch.optim.lr_scheduler.LinearLR(
                 self.optimizer, start_factor=warmup_factor, total_iters=warmup_iters
             )
-            self.metric_logger.add_meter("lr", utils.SmoothedValue(window_size=1, fmt="{value:.6f}"))
+            self.metric_logger.add_meter(
+                "lr", utils.SmoothedValue(window_size=1, fmt="{value:.6f}"))
         else:
             if load_dict["load_from_wandb"]:
                 self.load_model_wandb(load_dict["epoch"], load_dict["batch"],
@@ -97,15 +99,13 @@ class FasterModel:
                 self.load_model(load_dict["epoch"],
                                 load_dict["batch"], load_dict["path"])
 
-
         # signal.signal(signal.SIGINT, self.handle_interrupt)
         self.current_images = None
         self.current_targets = None
 
+    # ATTENZIONE: Una volta che il training è stato interrotto e lo si vuole riprendere
+    # bisogna creare un NUOVO Dataset che escluda le immagini già processate.
 
-
-    #ATTENZIONE: Una volta che il training è stato interrotto e lo si vuole riprendere
-    #bisogna creare un NUOVO Dataset che escluda le immagini già processate.
     def train(self, print_freq, scaler=None, save_freq=None):
 
         if not os.path.exists(self.tensorboard_logs_path + "/Epoch_" + str(self.epoch)):
@@ -121,7 +121,8 @@ class FasterModel:
             wandb_api = wandb.Api()
 
             # Search for the project in the entity
-            self.projects = wandb_api.projects(self.wandb_logging["wandb_entity"])
+            self.projects = wandb_api.projects(
+                self.wandb_logging["wandb_entity"])
             self.project_exists = any(
                 p.name == self.wandb_logging["wandb_project"] for p in self.projects)
 
@@ -145,13 +146,14 @@ class FasterModel:
                                id=run_id, resume="must", sync_tensorboard=True)
             # If the project doesn't exist, create it
             else:
-                print("Wandb: creating new project and run for epoch " + str(self.epoch))
+                print("Wandb: creating new project and run for epoch " +
+                      str(self.epoch))
                 wandb.init(project=self.wandb_logging["wandb_project"],
                            name=("Epoch_" + str(self.epoch)),
                            config={
                                "learning_rate": 0.001,
                                "architecture": "FasterRCNN",
-                           }, sync_tensorboard=True)
+                }, sync_tensorboard=True)
 
         self.model.train()
         header = f"Epoch: [{self.epoch}]"
@@ -232,7 +234,6 @@ class FasterModel:
             self.writer.close()
             self.writer_all_epoch.close()
 
-
             if self.wandb_logging is not None:
                 wandb.finish()
 
@@ -245,7 +246,8 @@ class FasterModel:
             wandb_api = wandb.Api()
 
             # Search for the project in the entity
-            self.projects = wandb_api.projects(self.wandb_logging["wandb_entity"])
+            self.projects = wandb_api.projects(
+                self.wandb_logging["wandb_entity"])
             self.project_exists = any(
                 p.name == self.wandb_logging["wandb_project"] for p in self.projects)
 
@@ -269,13 +271,14 @@ class FasterModel:
                                id=run_id, resume="must", sync_tensorboard=True)
             # If the project doesn't exist, create it
             else:
-                print("Wandb: creating new project and run for epoch " + str(self.epoch))
+                print("Wandb: creating new project and run for epoch " +
+                      str(self.epoch))
                 wandb.init(project=self.wandb_logging["wandb_project"],
                            name=("Epoch_" + str(self.epoch)),
                            config={
                                "learning_rate": 0.001,
                                "architecture": "FasterRCNN",
-                           }, sync_tensorboard=True)
+                }, sync_tensorboard=True)
 
         self.save_model()
         self.writer.close()
@@ -317,13 +320,13 @@ class FasterModel:
         if path is None:
             path = self.model_params_path
 
-        #da migliorare
+        # da migliorare
         if torch.cuda.is_available():
             diz = torch.load(path + "/epoch_" +
-                         str(self.epoch) + "_batch_" + str(self.last_batch) + ".pth")
+                             str(self.epoch) + "_batch_" + str(self.last_batch) + ".pth")
         else:
             diz = torch.load(path + "/epoch_" +
-                         str(self.epoch) + "_batch_" + str(self.last_batch) + ".pth", map_location=torch.device('cpu'))
+                             str(self.epoch) + "_batch_" + str(self.last_batch) + ".pth", map_location=torch.device('cpu'))
         self.model.load_state_dict(diz['model_state_dict'])
         self.optimizer.load_state_dict = diz['optimizer_state_dict']
 
@@ -457,3 +460,43 @@ class FasterModel:
             iou_types.append("keypoints")
         print("IOU types: ", iou_types)
         return iou_types
+
+    @torch.inference_mode()
+    def apply_object_detection(self, image):
+        str_label = ["No Elmet", "Elmet", "Welding Mask",
+                     "Ear Protection", "No Gilet", "Gilet", "Person"]
+        colors = ['red', 'blue', 'green',
+                  'orange', 'purple', 'pink', "brown"]
+        self.model.eval()
+        image = image.unsqueeze(0)
+
+        with torch.no_grad():
+            predictions = self.model(image)
+
+        boxes = predictions[0]['boxes']
+        labels = predictions[0]['labels']
+
+        fig, ax = plt.subplots(1)
+        ax.imshow(image[0].permute(1, 2, 0))
+
+        for l, bbox in zip(labels, boxes):
+            width = bbox[2] - bbox[0]
+            height = bbox[3] - bbox[1]
+
+            x = bbox[0]
+            y = bbox[1]
+
+            # Create a rectangle patch
+            if (l < len(str_label)):
+                rect = patches.Rectangle(
+                    (x, y), width, height, linewidth=1, edgecolor=colors[l], facecolor="none")
+                ax.text(x, y - 10, str_label[l], color=colors[l])
+            else:
+                rect = patches.Rectangle(
+                    (x, y), width, height, linewidth=1, edgecolor="black", facecolor="none")
+                ax.text(x, y - 10, "Unknown", color="black")
+            # Add the rectangle to the axes
+            ax.add_patch(rect)
+
+        # Show the plot
+        plt.show()
