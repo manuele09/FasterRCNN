@@ -472,12 +472,14 @@ class FasterModel:
         
         with torch.no_grad():
             predictions = self.model(image.clone().to(self.device))
-
+        predictions = [{k: v.to(self.device) for k, v in t.items()}
+                       for t in predictions]
+        
         boxes = predictions[0]['boxes']
         labels = predictions[0]['labels']
 
         fig, ax = plt.subplots(1)
-        ax.imshow(image.cpu()[0].permute(1, 2, 0))
+        ax.imshow(image[0].permute(1, 2, 0))
 
         for l, bbox in zip(labels, boxes):
             width = bbox[2] - bbox[0]
