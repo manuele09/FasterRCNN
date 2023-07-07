@@ -472,7 +472,7 @@ class FasterModel:
         
         with torch.no_grad():
             predictions = self.model(image.clone().to(self.device))
-        predictions = [{k: v.to(self.device) for k, v in t.items()}
+        predictions = [{k: v.to(torch.device("cpu")) for k, v in t.items()}
                        for t in predictions]
         
         boxes = predictions[0]['boxes']
