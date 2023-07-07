@@ -211,7 +211,7 @@ class RealDataset(Dataset):
         file_id = self.dirs_ids[file_name]
         out_path = os.path.join(self.base_path, file_name) + ".zip"
         download_url = f"https://studentiunict-my.sharepoint.com/:u:/g/personal/cnnmnl01r09m088w_studium_unict_it/{file_id}?download=1"
-        command = f"wget -c --no-check-certificate -O {out_path} {download_url} > /dev/null 2>&1"
+        command = f"wget --no-check-certificate -O {out_path} {download_url} > /dev/null 2>&1"
         
         timeout = 120
         while(True):
