@@ -102,13 +102,12 @@ class RealDataset(Dataset):
 
     # images_root: path containg all the images
     # image_list_path: path of the file containing the list of all the images name
-    def __init__(self, base_path, images_list=None, list_file_name=None,  transform=None, download_virtual_dataset=False, start_index=0):
+    def __init__(self, base_path, images_list=None, list_file_name=None,  transform=None, download_virtual_dataset=False):
         self.base_path = base_path
         self.download_virtual_dataset = download_virtual_dataset
         self.images_list = images_list
         self.transform = transform
-        self.start_index = start_index
-
+        
         self.str_label = ["No Elmet", "Elmet", "Welding Mask",
                           "Ear Protection", "No Gilet", "Gilet", "Person"]
         self.colors = ['red', 'blue', 'green',
@@ -198,10 +197,10 @@ class RealDataset(Dataset):
         if self.images_list is None:
             print("Error: images_list is None")
             return
-        self.images_list = self.images_list[self.start_index:]
+        self.original_images_list = self.images_list.copy()
 
     def skip_items(self, start_index):
-        self.images_list = self.images_list[start_index:]
+        self.images_list = self.original_images_list[start_index:]
         print(f"Skipping {start_index} items")
 
     # Downloads the file_name.zip from the shared link, extracts it in the base_path
@@ -299,7 +298,7 @@ class RealDataset(Dataset):
     def __len__(self):
         return len(self.images_list)
 
-    def show_bounding(self, index): 
+    def show_bounding(self, index, classes_to_show=None): 
         image, targets = self[index]
         self.label, self.bounding = targets["labels"], targets["boxes"]
 
@@ -308,6 +307,8 @@ class RealDataset(Dataset):
         # ax.imshow(image)
 
         for l, bbox in zip(self.label, self.bounding):
+            if classes_to_show is not None and self.str_label[l] not in classes_to_show:
+                continue
             width = bbox[2] - bbox[0]
             height = bbox[3] - bbox[1]
 
@@ -321,6 +322,10 @@ class RealDataset(Dataset):
             # Add the rectangle to the axes
             ax.add_patch(rect)
             ax.text(x, y - 10, self.str_label[l], color=self.colors[l])
+            ax.axis('off')
 
         # Show the plot
         plt.show()
+        return fig
+    
+        image, targets = self[index]

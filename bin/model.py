@@ -40,8 +40,7 @@ class FasterModel:
     # wandb_project: string (the name of the wandb project)
     # epoch: int (the epoch from which you want to load the model)
     # batch: int (the batch from which you want to load the model)
-    # path: string (the path from which you want to load the model, if load_from_wandb is False;
-    #               if None the path will be the default one, ie logging_base_path ...)
+
 
     # wandb_logging if specified must be a dictionary with the following keys:
     # wandb_api_key: string (the api key of your wandb account)
@@ -94,10 +93,10 @@ class FasterModel:
         else:
             if load_dict["load_from_wandb"]:
                 self.load_model_wandb(load_dict["epoch"], load_dict["batch"],
-                                      load_dict["wandb_entity"], load_dict["wandb_project"], load_dict["path"])
+                                      load_dict["wandb_entity"], load_dict["wandb_project"])
             else:
                 self.load_model(load_dict["epoch"],
-                                load_dict["batch"], load_dict["path"])
+                                load_dict["batch"])
 
         # signal.signal(signal.SIGINT, self.handle_interrupt)
         self.current_images = None
@@ -313,20 +312,17 @@ class FasterModel:
             # aggiungere opzione per eliminare il file in locale
         print(f"Model saved at epoch {self.epoch} and batch {self.last_batch}")
 
-    def load_model(self, epoch, last_batch, path=None):
+    def load_model(self, epoch, last_batch):
         self.epoch = epoch
         self.last_batch = last_batch
-
-        if path is None:
-            path = self.model_params_path
-
-        # da migliorare
+        
+        model_path = self.model_params_path + "/epoch_" + str(self.epoch) + "_batch_" + str(self.last_batch) + ".pth"
+        
+        
         if torch.cuda.is_available():
-            diz = torch.load(path + "/epoch_" +
-                             str(self.epoch) + "_batch_" + str(self.last_batch) + ".pth")
+            diz = torch.load(model_path)
         else:
-            diz = torch.load(path + "/epoch_" +
-                             str(self.epoch) + "_batch_" + str(self.last_batch) + ".pth", map_location=torch.device('cpu'))
+            diz = torch.load(model_path, map_location=torch.device('cpu'))
         self.model.load_state_dict(diz['model_state_dict'])
         self.optimizer.load_state_dict = diz['optimizer_state_dict']
 
@@ -343,22 +339,22 @@ class FasterModel:
         print(
             f"Model loaded at epoch {self.epoch} and batch {self.last_batch}")
 
-    def load_model_wandb(self, epoch, last_batch, entity, project_name, path=None):
+    def load_model_wandb(self, epoch, last_batch, entity, project_name):
+        if not os.path.exists(self.model_params_path + "/epoch_" + str(self.epoch) + "_batch_" + str(self.last_batch) + ".pth"):
+            api = wandb.Api()
 
-        api = wandb.Api()
+            runs = api.runs(entity + "/" + project_name)
+            run_id = next((run.id for run in runs if run.name ==
+                        ("Epoch_" + str(epoch))), None)
+            if run_id is None:
+                print("No run with this epoch found.")
+                return
 
-        runs = api.runs(entity + "/" + project_name)
-        run_id = next((run.id for run in runs if run.name ==
-                      ("Epoch_" + str(epoch))), None)
-        if run_id is None:
-            print("No run with this epoch found.")
-            return
+            run = api.run(entity + "/" + project_name + "/" + run_id)
+            run.file("epoch_" + str(epoch) + "_batch_" + str(last_batch) +
+                    ".pth").download(self.model_params_path, replace=True)
 
-        run = api.run(entity + "/" + project_name + "/" + run_id)
-        run.file("epoch_" + str(epoch) + "_batch_" + str(last_batch) +
-                 ".pth").download(self.model_params_path, replace=True)
-
-        self.load_model(epoch, last_batch, path)
+        self.load_model(epoch, last_batch)
 
         if self.save_memory:
             os.remove(self.model_params_path + "/epoch_" +
@@ -462,7 +458,7 @@ class FasterModel:
         return iou_types
 
     @torch.inference_mode()
-    def apply_object_detection(self, image):
+    def apply_object_detection(self, image, treshold=0.5, classes_to_show=None):
         str_label = ["No Elmet", "Elmet", "Welding Mask",
                      "Ear Protection", "No Gilet", "Gilet", "Person"]
         colors = ['red', 'blue', 'green',
@@ -477,11 +473,16 @@ class FasterModel:
         
         boxes = predictions[0]['boxes']
         labels = predictions[0]['labels']
+        scores = predictions[0]['scores']
 
         fig, ax = plt.subplots(1)
         ax.imshow(image[0].permute(1, 2, 0))
 
-        for l, bbox in zip(labels, boxes):
+        for i, (l, bbox) in enumerate(zip(labels, boxes)):
+            if scores[i] < treshold:
+                continue
+            if (classes_to_show is not None and str_label[l] not in classes_to_show):
+                continue
             width = bbox[2] - bbox[0]
             height = bbox[3] - bbox[1]
 
