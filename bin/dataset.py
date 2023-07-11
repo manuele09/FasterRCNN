@@ -102,6 +102,8 @@ class RealDataset(Dataset):
 
     # images_root: path containg all the images
     # image_list_path: path of the file containing the list of all the images name
+    
+    #aggiungere opzione se cancellare oppure no i vecchi dataset scaricati
     def __init__(self, base_path, images_list=None, list_file_name=None,  transform=None, download_dataset=False):
         self.base_path = base_path
         self.download_dataset = download_dataset

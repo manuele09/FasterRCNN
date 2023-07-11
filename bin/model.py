@@ -357,7 +357,47 @@ class FasterModel:
 
         self.load_model(epoch, last_batch)
 
+    def combine_all_epochs(self):
+        wandb_api = wandb.Api()
+        cumulative_run = "All Epochs"
 
+        # Search for the project in the entity
+        projects = wandb_api.projects(self.wandb_logging["wandb_entity"])
+        project_exists = any(p.name == self.wandb_logging["wandb_project"] for p in projects)
+        
+        # If the project doesn't exists...
+        if not project_exists:
+            return
+        
+        # Search for the run in the project
+        wandb_path = self.wandb_logging["wandb_entity"] + "/" + self.wandb_logging["wandb_project"]
+        runs = wandb_api.runs(wandb_path)
+        run_id = next((run.id for run in runs if run.name == (cumulative_run)), None)
+        
+        # If the run exist delete
+        if (run_id is not None):
+            print(f"Wandb: Deleting run {cumulative_run}")
+            wandb_api.run(wandb_path + "/" + run_id).delete()
+        
+        print(f"Creating run {cumulative_run}")
+        wandb.init(project=self.wandb_logging["wandb_project"], name=cumulative_run)
+
+        losses = []
+        for i in range(0, len(runs)):
+            run_id = next((run.id for run in runs if run.name == (
+                                "Epoch_" + str(i))), None)
+            if (run_id is None):
+                break
+            
+            run = wandb_api.run(wandb_path + "/" + run_id)
+            lista = run.history(pandas=False)
+            for d in lista:
+                losses.append(d["loss"])
+
+        for l in losses:
+            wandb.log({"loss": l})
+        wandb.finish()
+                
     @torch.inference_mode()
     def evaluate(self, data_loader):
         n_threads = torch.get_num_threads()
