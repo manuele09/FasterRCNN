@@ -146,7 +146,8 @@ class RealDataset(Dataset):
         #                  "29_03_19_16_29_52": "EdKf-fzUaxxPk8wE_lykl2wBkec_JR4gjEtXpjdzuIl3Qw"}
 
         self.datasets = []
-        self.virtual_dataset_train = {"train.virtual.txt": "ESRH0_-lm7BKr4jRUZRyhQgBlStl96JNnQ1mpKn2mhXw8g",                         "group_0": "ERf726zSyetKpEMBoCgER98BpjOC1DCFxG4JweGMckKRKA",
+        self.virtual_dataset_train = {"train.virtual.txt": "ESRH0_-lm7BKr4jRUZRyhQgBlStl96JNnQ1mpKn2mhXw8g",                         
+                         "group_0": "ERf726zSyetKpEMBoCgER98BpjOC1DCFxG4JweGMckKRKA",
                          "group_1": "EXJ8NAapu-1OpMtLrZHB2nYBeA4ihaj25MkqP7_X5cU0aQ",
                          "group_2": "EYr2Vm3cTHVPn71sCXVYh-oB4kwfPLf3h92xksdRWSkl5A",
                          "group_3": "ES3TDB2YyT5MrntnsXOb6lYBh9jsnYLrG1eCvsTC5H-_ZA",
@@ -165,12 +166,20 @@ class RealDataset(Dataset):
                          "group_16": "Ee2G-cGNgUBFr13PUZTOkKYB07REnEJDK8lC4Cnx_sQljg",
                          "group_17": "EfaA32jOwR5IopCNiP_EH4kBGjUvViNgJ04fls6CS79EcQ",
                          "group_18": "Eecun1vLi-VChu3tOFXjNAoBkTyvlMzieELscP9osdeUUg",
-                         "group_19": "ES4WnpNHHTxPrtsQvtHuqj8BKHJqzKJDmBY-In0ehWThDg"}                      }
+                         "group_19": "ES4WnpNHHTxPrtsQvtHuqj8BKHJqzKJDmBY-In0ehWThDg"}
         self.datasets.append(self.virtual_dataset_train)
 
         self.virtual_dataset_valid = {"valid.virtual.txt": "ESV7PFigkP5EicRmdChtQdMBjBTonHCgEM0-OHhk4i3phQ",
                          "group_20": "EZ2KJoTua-1LvaR74opw2YoB-G6OlNUPJKVFNPsKGp_X_g"}
         self.datasets.append(self.virtual_dataset_valid)
+
+        self.real_dataset_train = {"train.real.txt": "EUG7D7Go-apBr9uT-BSQ3m0BA6in820suR6ZeQjM8D25MA",
+                                   "train": "EblpJ8WwjddEgGDCm49BNf0B8flwHM0jJqimCT0ovwpBAQ"}
+        self.datasets.append(self.real_dataset_train)
+
+        self.real_dataset_valid = {"valid.real.txt": "EduThXcR-TtJnKe_n0NQ5TQB1anZohLn93jYG-WsuH4Mag",
+                                   "valid": "EVHyT5P7QAFDljbnhNWlotQBEdnTPennUtvQisiitKl_Og"}
+        self.datasets.append(self.real_dataset_valid)
 
         if self.download_dataset:
             if list_file_name is None:
