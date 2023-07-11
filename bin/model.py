@@ -413,7 +413,7 @@ class FasterModel:
         coco = get_coco_api_from_dataset(data_loader.dataset)
         iou_types = self._get_iou_types() #tipi di metriche supporate dal modello
         coco_evaluator = CocoEvaluator(coco, iou_types)
-
+        coco_evaluator.coco_eval['bbox'].params.catIds = [0]
         for images, targets in metric_logger.log_every(data_loader, 100, header):
             images = list(img.to(self.device) for img in images)
 
