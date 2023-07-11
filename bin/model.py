@@ -400,7 +400,7 @@ class FasterModel:
     
                
     @torch.inference_mode()
-    def evaluate(self, data_loader):
+    def evaluate(self, data_loader, catIds=None):
         n_threads = torch.get_num_threads()
         # FIXME remove this and make paste_masks_in_image run on the GPU
         torch.set_num_threads(1)
@@ -413,7 +413,8 @@ class FasterModel:
         coco = get_coco_api_from_dataset(data_loader.dataset)
         iou_types = self._get_iou_types() #tipi di metriche supporate dal modello
         coco_evaluator = CocoEvaluator(coco, iou_types)
-        coco_evaluator.coco_eval['bbox'].params.catIds = [0]
+        if catIds is not None:
+            coco_evaluator.coco_eval['bbox'].params.catIds = [catIds]
         for images, targets in metric_logger.log_every(data_loader, 100, header):
             images = list(img.to(self.device) for img in images)
 
@@ -468,13 +469,7 @@ class FasterModel:
         # che ci interessa, di questo modo possiamo chiamare co_evaluator.coco_eval['bbox'].summarize()
         # che farà tutto come al solito, ma filtrerà gli elementi che non sono maggiori di -1
 
-        print("Prima Categoria:")
-        coco_evaluator.coco_eval['bbox'].params.catIds = [0]
-        # coco_evaluator.coco_eval['bbox'].eval['precision'] = coco_evaluator.coco_eval['bbox'].eval['precision'][:, :, 0:1, :, :]
-        # coco_evaluator.coco_eval['bbox'].eval['precision'] = np.ones(coco_evaluator.coco_eval['bbox'].eval['precision'].shape)
 
-        coco_evaluator.coco_eval['bbox'].accumulate()
-        coco_evaluator.coco_eval['bbox'].summarize()
 
         torch.set_num_threads(n_threads)
         return coco_evaluator
