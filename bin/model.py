@@ -91,7 +91,7 @@ class FasterModel:
                 "lr", utils.SmoothedValue(window_size=1, fmt="{value:.6f}"))
         else:
             if load_dict["load_from_wandb"]:
-                self.load_model_wandb(load_dict["epoch"], load_dict["batch"],
+                self.load_model_from_wandb(load_dict["epoch"], load_dict["batch"],
                                       load_dict["wandb_entity"], load_dict["wandb_project"])
             else:
                 self.load_model(load_dict["epoch"],
@@ -318,9 +318,9 @@ class FasterModel:
         
         
         if torch.cuda.is_available():
-            diz = torch.load(model_path)
+            diz = torch.load(model_path, map_location=self.device)
         else:
-            diz = torch.load(model_path, map_location=torch.device('cpu'))
+            diz = torch.load(model_path, map_location=self.device)
         self.model.load_state_dict(diz['model_state_dict'])
         self.optimizer.load_state_dict = diz['optimizer_state_dict']
 
@@ -337,7 +337,7 @@ class FasterModel:
         print(
             f"Model loaded at epoch {self.epoch} and batch {self.last_batch}")
 
-    def load_model_wandb(self, epoch, last_batch, entity, project_name):
+    def load_model_from_wandb(self, epoch, last_batch, entity, project_name):
         if not os.path.exists(self.model_params_path + "/epoch_" + str(self.epoch) + "_batch_" + str(self.last_batch) + ".pth"):
             api = wandb.Api()
 
@@ -349,8 +349,11 @@ class FasterModel:
                 return
 
             run = api.run(entity + "/" + project_name + "/" + run_id)
-            run.file("epoch_" + str(epoch) + "_batch_" + str(last_batch) +
-                    ".pth").download(self.model_params_path, replace=True)
+            file = run.file("epoch_" + str(epoch) + "_batch_" + str(last_batch) + ".pth")
+            if file.size != 0:
+                file.download(self.model_params_path, replace=True)
+            else:
+                return
 
         self.load_model(epoch, last_batch)
 
