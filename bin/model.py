@@ -411,7 +411,7 @@ class FasterModel:
 
         # Convert the dataset into a COCO dataset format
         coco = get_coco_api_from_dataset(data_loader.dataset)
-        iou_types = self._get_iou_types()
+        iou_types = self._get_iou_types() #tipi di metriche supporate dal modello
         coco_evaluator = CocoEvaluator(coco, iou_types)
 
         for images, targets in metric_logger.log_every(data_loader, 100, header):
@@ -469,11 +469,12 @@ class FasterModel:
         # che farà tutto come al solito, ma filtrerà gli elementi che non sono maggiori di -1
 
         print("Prima Categoria:")
-        coco_evaluator.coco_eval['bbox'].eval['precision'] = coco_evaluator.coco_eval['bbox'].eval['precision'][:, :, 0:1, :, :]
+        coco_evaluator.coco_eval['bbox'].params.catIds = [0]
+        # coco_evaluator.coco_eval['bbox'].eval['precision'] = coco_evaluator.coco_eval['bbox'].eval['precision'][:, :, 0:1, :, :]
         # coco_evaluator.coco_eval['bbox'].eval['precision'] = np.ones(coco_evaluator.coco_eval['bbox'].eval['precision'].shape)
 
+        coco_evaluator.coco_eval['bbox'].accumulate()
         coco_evaluator.coco_eval['bbox'].summarize()
-        print(coco_evaluator.coco_eval['bbox'].eval['precision'].shape)
 
         torch.set_num_threads(n_threads)
         return coco_evaluator
