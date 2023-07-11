@@ -47,9 +47,8 @@ class FasterModel:
     # wandb_entity: string (the entity of the wandb project)
     # wandb_project: string (the name of the wandb project)
 
-    def __init__(self, data_loader, logging_base_path=".", wandb_logging=None, load_dict=None, save_memory=False):
+    def __init__(self, data_loader, logging_base_path=".", wandb_logging=None, load_dict=None):
         self.wandb_logging = wandb_logging
-        self.save_memory = save_memory
 
         if self.wandb_logging is not None:
             wandb.login(key=self.wandb_logging["wandb_api_key"])
@@ -289,6 +288,7 @@ class FasterModel:
         return self.metric_logger
 
     def save_model(self):
+        #Save in local storage
         torch.save({
             'epoch': self.epoch,
             'last_batch': self.last_batch,
@@ -298,6 +298,7 @@ class FasterModel:
             'metric_logger': {'meters': self.metric_logger.meters, 'iter_time': self.metric_logger.iter_time, 'data_time': self.metric_logger.data_time},
         }, self.model_params_path + "/epoch_" + str(self.epoch) + "_batch_" + str(self.last_batch) + ".pth")
 
+        #Upload to wandb
         if self.wandb_logging:
             wandb.save(
                 self.model_params_path + "/epoch_" +
@@ -306,10 +307,7 @@ class FasterModel:
                 policy="now"
             )
             print("Model uploaded to wandb.")
-            if self.save_memory:
-                os.remove(self.model_params_path + "/epoch_" +
-                          str(self.epoch) + "_batch_" + str(self.last_batch) + ".pth")
-            # aggiungere opzione per eliminare il file in locale
+            
         print(f"Model saved at epoch {self.epoch} and batch {self.last_batch}")
 
     def load_model(self, epoch, last_batch):
@@ -356,9 +354,6 @@ class FasterModel:
 
         self.load_model(epoch, last_batch)
 
-        if self.save_memory:
-            os.remove(self.model_params_path + "/epoch_" +
-                      str(self.epoch) + "_batch_" + str(self.last_batch) + ".pth")
 
     @torch.inference_mode()
     def evaluate(self, data_loader):
