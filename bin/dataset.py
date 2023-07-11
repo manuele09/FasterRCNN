@@ -102,9 +102,9 @@ class RealDataset(Dataset):
 
     # images_root: path containg all the images
     # image_list_path: path of the file containing the list of all the images name
-    def __init__(self, base_path, images_list=None, list_file_name=None,  transform=None, download_virtual_dataset=False):
+    def __init__(self, base_path, images_list=None, list_file_name=None,  transform=None, download_dataset=False):
         self.base_path = base_path
-        self.download_virtual_dataset = download_virtual_dataset
+        self.download_dataset = download_dataset
         self.images_list = images_list
         self.transform = transform
         
@@ -145,9 +145,8 @@ class RealDataset(Dataset):
         #                  "29_03_19_16_06_55": "EQ1oEyDMhs9Au2AtS9wyIU4BnWKFxAg6UJyL8oD8I-8y2w",
         #                  "29_03_19_16_29_52": "EdKf-fzUaxxPk8wE_lykl2wBkec_JR4gjEtXpjdzuIl3Qw"}
 
-        self.dirs_ids = {"train.virtual.txt": "ESRH0_-lm7BKr4jRUZRyhQgBlStl96JNnQ1mpKn2mhXw8g",
-                         "valid.virtual.txt": "ESV7PFigkP5EicRmdChtQdMBjBTonHCgEM0-OHhk4i3phQ",
-                         "group_0": "ERf726zSyetKpEMBoCgER98BpjOC1DCFxG4JweGMckKRKA",
+        self.datasets = []
+        self.virtual_dataset_train = {"train.virtual.txt": "ESRH0_-lm7BKr4jRUZRyhQgBlStl96JNnQ1mpKn2mhXw8g",                         "group_0": "ERf726zSyetKpEMBoCgER98BpjOC1DCFxG4JweGMckKRKA",
                          "group_1": "EXJ8NAapu-1OpMtLrZHB2nYBeA4ihaj25MkqP7_X5cU0aQ",
                          "group_2": "EYr2Vm3cTHVPn71sCXVYh-oB4kwfPLf3h92xksdRWSkl5A",
                          "group_3": "ES3TDB2YyT5MrntnsXOb6lYBh9jsnYLrG1eCvsTC5H-_ZA",
@@ -166,14 +165,27 @@ class RealDataset(Dataset):
                          "group_16": "Ee2G-cGNgUBFr13PUZTOkKYB07REnEJDK8lC4Cnx_sQljg",
                          "group_17": "EfaA32jOwR5IopCNiP_EH4kBGjUvViNgJ04fls6CS79EcQ",
                          "group_18": "Eecun1vLi-VChu3tOFXjNAoBkTyvlMzieELscP9osdeUUg",
-                         "group_19": "ES4WnpNHHTxPrtsQvtHuqj8BKHJqzKJDmBY-In0ehWThDg",
-                         "group_20": "EZ2KJoTua-1LvaR74opw2YoB-G6OlNUPJKVFNPsKGp_X_g"
-                         }
-        if self.download_virtual_dataset:
+                         "group_19": "ES4WnpNHHTxPrtsQvtHuqj8BKHJqzKJDmBY-In0ehWThDg"}                      }
+        self.datasets.append(self.virtual_dataset_train)
+
+        self.virtual_dataset_valid = {"valid.virtual.txt": "ESV7PFigkP5EicRmdChtQdMBjBTonHCgEM0-OHhk4i3phQ",
+                         "group_20": "EZ2KJoTua-1LvaR74opw2YoB-G6OlNUPJKVFNPsKGp_X_g"}
+        self.datasets.append(self.virtual_dataset_valid)
+
+        if self.download_dataset:
             if list_file_name is None:
                 print("Error: list_file_name is None")
                 return
-
+            
+            self.dirs_ids = None
+            for dataset in self.datasets:
+                if list_file_name in dataset:
+                    self.dirs_ids = dataset
+                    break
+            if self.dirs_ids is None:
+                print("Error: list_file_name not found in self.datasets")
+                return
+        
             # create the base_path if not exists, and download the list_file
             if not os.path.exists(self.base_path):
                 print("Creating base_path")
@@ -244,7 +256,7 @@ class RealDataset(Dataset):
             # return None
             return self.__getitem__(index % len(self.images_list))
 
-        if self.download_virtual_dataset:
+        if self.download_dataset:
 
             # Find the directory that contains the image
             current_dir = self.images_list[index].split(os.path.sep)[-2]
