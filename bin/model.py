@@ -397,7 +397,8 @@ class FasterModel:
         for l in losses:
             wandb.log({"loss": l})
         wandb.finish()
-                
+    
+               
     @torch.inference_mode()
     def evaluate(self, data_loader):
         n_threads = torch.get_num_threads()
@@ -449,9 +450,7 @@ class FasterModel:
         coco_evaluator.accumulate()
         coco_evaluator.summarize()
 
-        print("Max detects")
-        print(
-            coco_evaluator.coco_eval['bbox'].eval['precision'][0, 0, 0, 0, 1])
+
 
         # [10, 101, 5, 4, 3]
         # [T x R  x K xA xM]
@@ -471,8 +470,7 @@ class FasterModel:
 
         print("Prima Categoria:")
         coco_evaluator.coco_eval['bbox'].eval['precision'] = coco_evaluator.coco_eval['bbox'].eval['precision'][:, :, 0:1, :, :]
-        coco_evaluator.coco_eval['bbox'].eval['precision'] = np.ones(
-            coco_evaluator.coco_eval['bbox'].eval['precision'].shape)
+        # coco_evaluator.coco_eval['bbox'].eval['precision'] = np.ones(coco_evaluator.coco_eval['bbox'].eval['precision'].shape)
 
         coco_evaluator.coco_eval['bbox'].summarize()
         print(coco_evaluator.coco_eval['bbox'].eval['precision'].shape)
