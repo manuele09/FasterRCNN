@@ -412,9 +412,15 @@ class FasterModel:
         # Convert the dataset into a COCO dataset format
         coco = get_coco_api_from_dataset(data_loader.dataset)
         iou_types = self._get_iou_types() #tipi di metriche supporate dal modello
-        coco_evaluator = CocoEvaluator(coco, iou_types)
+
+        coco_evaluator_list = []
         if catIds is not None:
-            coco_evaluator.coco_eval['bbox'].params.catIds = [catIds]
+            for i in range(0, len(catIds)):
+                coco_evaluator_list.append(CocoEvaluator(coco, iou_types))
+                coco_evaluator_list[i].coco_eval['bbox'].params.catIds = [catIds[i]]
+        else:
+            coco_evaluator_list.append(CocoEvaluator(coco, iou_types))
+
         for images, targets in metric_logger.log_every(data_loader, 100, header):
             images = list(img.to(self.device) for img in images)
 
@@ -433,7 +439,8 @@ class FasterModel:
                    output in zip(targets, outputs)}
 
             evaluator_time = time.time()
-            coco_evaluator.update(res)
+            for coco_evaluator in coco_evaluator_list:
+                coco_evaluator.update(res)
             evaluator_time = time.time() - evaluator_time
             metric_logger.update(model_time=model_time,
                                  evaluator_time=evaluator_time)
@@ -445,11 +452,21 @@ class FasterModel:
         # gather the stats from all processes
         metric_logger.synchronize_between_processes()
         print("Averaged stats:", metric_logger)
-        coco_evaluator.synchronize_between_processes()
-
+        for coco_evaluator in coco_evaluator_list:
+            coco_evaluator.synchronize_between_processes()
+        
+        str_label = ["No Elmet", "Elmet", "Welding Mask",
+                     "Ear Protection", "No Gilet", "Gilet", "Person"]
+        
         # accumulate predictions from all images
-        coco_evaluator.accumulate()
-        coco_evaluator.summarize()
+        for i, coco_evaluator in enumerate(coco_evaluator_list):
+            if catIds is not None:
+                print(f"Metriche relative alla classe {str_label[catIds[i]]}")
+            else:
+                print("Metriche relative a tutte le classi")
+            coco_evaluator.accumulate()
+            coco_evaluator.summarize()
+            print("\n\n")
 
 
 
