@@ -467,7 +467,7 @@ class FasterModel:
         # accumulate predictions from all images
         for i, coco_evaluator in enumerate(coco_evaluator_list):
             if i != 0:
-                print(f"Metriche relative alla classe {str_label[catIds[i]]}")
+                print(f"Metriche relative alla classe {str_label[catIds[i - 1]]}")
             else:
                 print("Metriche relative a tutte le classi")
             coco_evaluator.accumulate()
