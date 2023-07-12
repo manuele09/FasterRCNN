@@ -415,6 +415,8 @@ class FasterModel:
 
         coco_evaluator_list = []
         if catIds is not None:
+            if catIds == "all":
+                catIds = [0, 1, 2, 3, 4, 5, 6]
             for i in range(0, len(catIds)):
                 coco_evaluator_list.append(CocoEvaluator(coco, iou_types))
                 coco_evaluator_list[i].coco_eval['bbox'].params.catIds = [catIds[i]]
