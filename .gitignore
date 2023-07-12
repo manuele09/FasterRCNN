@@ -13,3 +13,5 @@ FasterRCNN_Logging
 models_saved
 /bin/cocoapi
 bin/averager.py
+dataset
+bin/dataset
