@@ -80,7 +80,7 @@ st.write("Choose the dataset where to apply the model")
 avaibles_datasets = ["Placeholder", "Real Dataset Train", "Real Dataset Valid"]
 selected_dataset = st.selectbox('Dataset:', avaibles_datasets)
 
-base_path = ".."
+base_path = "."
 image_base_path = base_path + "/dataset"
 if (selected_dataset == avaibles_datasets[0]):
     exit()
