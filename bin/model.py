@@ -398,7 +398,10 @@ class FasterModel:
             wandb.log({"loss": l})
         wandb.finish()
     
-               
+    #Se catIds non viene specificato, viene generata una metrica per 
+    #tutte le categorie. Se viene specificato un array di categorie,
+    #calcola le metriche per ognuna delle categorie. Se viene specificato
+    #"all" lo fa per tutte le categorie. 
     @torch.inference_mode()
     def evaluate(self, data_loader, catIds=None):
         n_threads = torch.get_num_threads()
@@ -414,14 +417,15 @@ class FasterModel:
         iou_types = self._get_iou_types() #tipi di metriche supporate dal modello
 
         coco_evaluator_list = []
+        coco_evaluator_list.append(CocoEvaluator(coco, iou_types))
+
         if catIds is not None:
             if catIds == "all":
                 catIds = [0, 1, 2, 3, 4, 5, 6]
             for i in range(0, len(catIds)):
                 coco_evaluator_list.append(CocoEvaluator(coco, iou_types))
-                coco_evaluator_list[i].coco_eval['bbox'].params.catIds = [catIds[i]]
-        else:
-            coco_evaluator_list.append(CocoEvaluator(coco, iou_types))
+                coco_evaluator_list[i + 1].coco_eval['bbox'].params.catIds = [catIds[i]]
+
 
         for images, targets in metric_logger.log_every(data_loader, 100, header):
             images = list(img.to(self.device) for img in images)
@@ -462,7 +466,7 @@ class FasterModel:
         
         # accumulate predictions from all images
         for i, coco_evaluator in enumerate(coco_evaluator_list):
-            if catIds is not None:
+            if i != 0:
                 print(f"Metriche relative alla classe {str_label[catIds[i]]}")
             else:
                 print("Metriche relative a tutte le classi")
@@ -554,3 +558,10 @@ class FasterModel:
 
         # Show the plot
         plt.show()
+
+
+#  No Elmet   |Elmet   |Welding Mask   |Ear Protection   |No Gilet   |Gilet   |Person   |All Together
+#Real_on_real |        |               |                 |           |        |         |
+#  0.0        |0.708   |0.618          |0.648            |0.708      |0.846   |0.859    |0.627
+#Virt_on_real |        |               |                 |           |        |         |
+#  0.0        |0.708   |0.618          |0.648            |0.708      |0.846   |0.859    |0.413
