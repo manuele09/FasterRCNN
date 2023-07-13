@@ -81,6 +81,7 @@ model = FasterModel(dataloader, base_path, wandb_logging=wandb_dict, load_dict=l
 #In the case of model downloaded from wandb, if the download was interrupted, it is necessary
 #to manually delete the file before trying to run the code again.
 #(It is displayed no progress bar for the download)
+#Moreover, if is it asked to select an option from three options, you can select the third one.
 
 
 # #################### TRAINING ####################
