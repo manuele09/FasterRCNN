@@ -104,6 +104,8 @@ class FasterModel:
     #it is necessary to redifine the dataset to skip the element that have been seen, 
     #before calling again train.
     #The code is a variation of the code avaible at this link: https://github.com/pytorch/vision/blob/main/references/detection/engine.py
+    #print_freq: is the frequence at wich printing the log message;
+    #save_freq: is the save frequency at wich saving the file (to local or wandb)
     def train(self, print_freq, scaler=None, save_freq=None):
 
         #Creates the directories to log the model

@@ -6,6 +6,7 @@ str_label = ["Head", "Helmet", "Welding Mask",
 colors_bounding = ['red', 'blue', 'green',
                        'orange', 'purple', 'pink', "brown"]
 
+# f"https://studentiunict-my.sharepoint.com/:u:/g/personal/cnnmnl01r09m088w_studium_unict_it/ESRH0_-lm7BKr4jRUZRyhQgBlStl96JNnQ1mpKn2mhXw8g?download=1"
 virtual_dataset_train = {"train.virtual.txt": "ESRH0_-lm7BKr4jRUZRyhQgBlStl96JNnQ1mpKn2mhXw8g",                         
                          "group_0": "ERf726zSyetKpEMBoCgER98BpjOC1DCFxG4JweGMckKRKA",
                          "group_1": "EXJ8NAapu-1OpMtLrZHB2nYBeA4ihaj25MkqP7_X5cU0aQ",
