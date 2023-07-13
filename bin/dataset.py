@@ -1,27 +1,28 @@
+from constants import *
+
 import torch
 from torch.utils.data.dataset import Dataset
 
-from constants import *
-from PIL import Image
-from os import path
-import numpy as np
-from PIL import Image
-
-import matplotlib.pyplot as plt
-import matplotlib.patches as patches
 import os
 import shutil
 import subprocess
 import zipfile
-import sys
-import threading
-import time
 
-from custom_utils import change_extension, from_path_to_names
+from PIL import Image
+import matplotlib.pyplot as plt
+import matplotlib.patches as patches
 
-# takes as input a list_file, containing the paths of the images.
-# modify the paths in the list_file, in order to mantain n_dirs_to_mantain directories
-# and adding new_root_path as root.
+
+
+#Change the extension of a filename (can include also a path)
+# to new_ext
+def change_extension(filename, new_ext):
+    # Split the filename into name and extension
+    name, extension = filename.rsplit(".", maxsplit=1)
+
+    # Change the extension
+    new_filename = name + new_ext
+    return new_filename
 
 #Read and retur a list from the path specified
 def read_list_from_file(path):

@@ -1,30 +1,23 @@
+from constants import *
+import utils
+
 import torch
 import torchvision
-import datetime
-from custom_utils import *
+
 from torch.utils.tensorboard import SummaryWriter
-import subprocess
+import wandb
+
 from coco_eval import CocoEvaluator
 from coco_utils import get_coco_api_from_dataset
-import math
-import sys
-import utils
-import time
-import os
-import signal
-import threading
-import wandb
-import numpy as np
-from PIL import Image, ImageDraw
+
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 
-from constants import *
-#pulire import
+import math
+import time
+import os
 
 class FasterModel:
-
-
     #Parameters to model parameters from file or from cloud.
     # load_dict if specified must be a dictionary with the following keys:
     # load_from_wandb: bool (True if you want to load the model from wandb, False if you want to load it from a local path)
