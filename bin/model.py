@@ -19,21 +19,13 @@ from PIL import Image, ImageDraw
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 
+from constants import *
+#pulire import
 
 class FasterModel:
 
-    def handle_interrupt(self, signal, frame):
-        print("\nCtrl+C pressed. Performing cleanup...")
-        del self.current_images
-        del self.current_targets
-        torch.cuda.empty_cache()
-        thread_id = threading.current_thread().ident
-        print("Thread ID:", thread_id)
 
-        return
-    # La load sarà possibile farla SOLO chiamando la __init__.
-    # Se non faccio la load posso istanziare lo scheduler, altrimenti lo istanzio nella load.
-
+    #Parameters to model parameters from file or from cloud.
     # load_dict if specified must be a dictionary with the following keys:
     # load_from_wandb: bool (True if you want to load the model from wandb, False if you want to load it from a local path)
     # wandb_entity: string (the entity of the wandb project)
@@ -41,80 +33,89 @@ class FasterModel:
     # epoch: int (the epoch from which you want to load the model)
     # batch: int (the batch from which you want to load the model)
 
-
+    #Parameter to do the logging of the model and its losses to wandb.
     # wandb_logging if specified must be a dictionary with the following keys:
     # wandb_api_key: string (the api key of your wandb account)
     # wandb_entity: string (the entity of the wandb project)
     # wandb_project: string (the name of the wandb project)
+    #In this case is not necessary that the project exists, it will be created automatically.
+    #Moreover will be created a run for each epoch, so you can see the loss of each epoch separately.
 
+    #data_loader;
+    #logging_base_path: string (the base path where the model parameters and the tensorboard logs will be saved)
     def __init__(self, data_loader, logging_base_path=".", wandb_logging=None, load_dict=None):
+        
         self.wandb_logging = wandb_logging
-
+        #authenticating to wandb
         if self.wandb_logging is not None:
             wandb.login(key=self.wandb_logging["wandb_api_key"])
 
+        #Defining the directories structure that will contain the logs
         self.data_loader = data_loader
         self.logging_base_path = logging_base_path + "/FasterRCNN_Logging"
         self.tensorboard_logs_path = self.logging_base_path + "/Tensorboard_logs"
+        self.tensorboard_logs_all_runs_path = self.tensorboard_logs_path + "/All_Epochs"
         self.model_params_path = self.logging_base_path + "/Model_parameters"
 
         if not os.path.exists(self.logging_base_path):
             os.makedirs(self.logging_base_path)
             os.makedirs(self.tensorboard_logs_path)
             os.makedirs(self.model_params_path)
-            # mettere la stringa in una self.
-            os.makedirs(self.tensorboard_logs_path + "/All_Epochs")
+            os.makedirs(self.tensorboard_logs_all_runs_path)
 
+        #Two indexes to keep track of the current epoch and batch
         self.epoch = 0
         self.last_batch = 0
 
+        #Defining the device to use
         if torch.cuda.is_available():
             self.device = torch.device("cuda")
         else:
             self.device = torch.device("cpu")
 
-        self.model = torchvision.models.detection.fasterrcnn_resnet50_fpn(
-            weights='DEFAULT')
+        #Defining the model with the pretrained weights from Coco
+        self.model = torchvision.models.detection.fasterrcnn_resnet50_fpn(weights='DEFAULT')
         self.model.to(self.device)
         self.params = [p for p in self.model.parameters() if p.requires_grad]
-        self.optimizer = torch.optim.SGD(
-            self.params, lr=0.001, momentum=0.9, weight_decay=0.0005)
+        
+        self.optimizer = torch.optim.SGD(self.params, lr=0.001, momentum=0.9, weight_decay=0.0005)
 
         self.metric_logger = utils.MetricLogger(delimiter="  ")
         if load_dict is None:
+            #Defining a new learning scheduler
             warmup_factor = 1.0 / 1000
             warmup_iters = min(1000, len(self.data_loader) - 1)
-            self.lr_scheduler = torch.optim.lr_scheduler.LinearLR(
-                self.optimizer, start_factor=warmup_factor, total_iters=warmup_iters
-            )
-            self.metric_logger.add_meter(
-                "lr", utils.SmoothedValue(window_size=1, fmt="{value:.6f}"))
-        else:
+            self.lr_scheduler = torch.optim.lr_scheduler.LinearLR(self.optimizer, start_factor=warmup_factor, total_iters=warmup_iters)
+            
+            self.metric_logger.add_meter("lr", utils.SmoothedValue(window_size=1, fmt="{value:.6f}"))
+        else: #(The learning scheduler will be resumed if the model is loaded, inside the load functions)
+            #load the model from wandb
             if load_dict["load_from_wandb"]:
-                self.load_model_from_wandb(load_dict["epoch"], load_dict["batch"],
+                self.__load_model_from_wandb(load_dict["epoch"], load_dict["batch"],
                                       load_dict["wandb_entity"], load_dict["wandb_project"])
-            else:
-                self.load_model(load_dict["epoch"],
+            else: #load model from file
+                self.__load_model(load_dict["epoch"],
                                 load_dict["batch"])
 
-        # signal.signal(signal.SIGINT, self.handle_interrupt)
         self.current_images = None
         self.current_targets = None
 
-    # ATTENZIONE: Una volta che il training è stato interrotto e lo si vuole riprendere
-    # bisogna creare un NUOVO Dataset che escluda le immagini già processate.
-
+    # Warning: if the training is interrupted and the epoch was not finished,
+    #it is necessary to redifine the dataset to skip the element that have been seen, 
+    #before calling again train.
+    #The code is a variation of the code avaible at this link: https://github.com/pytorch/vision/blob/main/references/detection/engine.py
     def train(self, print_freq, scaler=None, save_freq=None):
 
+        #Creates the directories to log the model
         if not os.path.exists(self.tensorboard_logs_path + "/Epoch_" + str(self.epoch)):
             os.makedirs(self.tensorboard_logs_path +
                         "/Epoch_" + str(self.epoch))
 
-        self.writer = SummaryWriter(
-            self.tensorboard_logs_path + "/Epoch_" + str(self.epoch))
-        self.writer_all_epoch = SummaryWriter(
-            self.tensorboard_logs_path + "/All_Epochs")
+        #Init the writers for tensorboard
+        self.writer = SummaryWriter(self.tensorboard_logs_path + "/Epoch_" + str(self.epoch))
+        self.writer_all_epoch = SummaryWriter(self.tensorboard_logs_all_runs_path)
 
+        #Init or resume a run if wand_logging
         if self.wandb_logging is not None:
             wandb_api = wandb.Api()
 
@@ -155,17 +156,20 @@ class FasterModel:
 
         self.model.train()
         header = f"Epoch: [{self.epoch}]"
-
-        batches_since_last_save = 0
+        batches_since_last_save = 0 #used for controlling the saving frequency
 
         try:
+            # For CTRL+C handling. 
+            self.current_images = None
+            self.current_targets = None
             for (images, targets) in self.metric_logger.log_every(self.data_loader, print_freq, header, resume_index=self.last_batch):
-
+                
+                #read images and targets, and convert them to device
                 images = list(image.to(self.device) for image in images)
                 targets = [{k: v.to(self.device)
                             for k, v in t.items()} for t in targets]
 
-                # For CTRL+C handling
+                # For CTRL+C handling. 
                 self.current_images = images
                 self.current_targets = targets
 
@@ -175,15 +179,15 @@ class FasterModel:
 
                 # reduce losses over all GPUs for logging purposes
                 loss_dict_reduced = utils.reduce_dict(loss_dict)
-                losses_reduced = sum(
-                    loss for loss in loss_dict_reduced.values())
-
+                losses_reduced = sum(loss for loss in loss_dict_reduced.values())
                 loss_value = losses_reduced.item()
 
+                #Tensorboard log
                 self.writer.add_scalar(
                     'loss/train', loss_value, global_step=self.last_batch)
                 self.writer_all_epoch.add_scalar(
                     'loss/train', loss_value, global_step=(self.last_batch + len(self.data_loader) * self.epoch))
+                #Wandb log
                 if self.wandb_logging:
                     wandb.log({"loss": loss_value})
 
@@ -223,7 +227,7 @@ class FasterModel:
                 # for CTRL+C handling
                 self.current_images = None
                 self.current_targets = None
-        except KeyboardInterrupt:
+        except KeyboardInterrupt: #Handle the CTRL+C event to clean memory and closing logs
             print("\nCtrl+C pressed. Performing cleanup...")
             del self.current_images
             del self.current_targets
@@ -239,6 +243,7 @@ class FasterModel:
 
         self.epoch += 1
         self.last_batch = 0
+        #Finish the current run and create a new run (for the next epoch)
         if self.wandb_logging is not None:
             wandb.finish()
             wandb_api = wandb.Api()
@@ -278,7 +283,8 @@ class FasterModel:
                                "architecture": "FasterRCNN",
                 }, sync_tensorboard=True)
 
-        self.save_model()
+        self.save_model() #Save the model in file or on wandb
+        #close all logs
         self.writer.close()
         if self.wandb_logging:
             wandb.finish()
@@ -287,6 +293,8 @@ class FasterModel:
             "lr", utils.SmoothedValue(window_size=1, fmt="{value:.6f}"))
         return self.metric_logger
 
+    #Save the current model parameters to file,
+    #and if wandb_logging is specified also to wandb.
     def save_model(self):
         #Save in local storage
         torch.save({
@@ -310,44 +318,50 @@ class FasterModel:
             
         print(f"Model saved at epoch {self.epoch} and batch {self.last_batch}")
 
-    def load_model(self, epoch, last_batch):
+    #Loads the model called f"epoch_{epoch}_batch_{last_batch}.pth" from the model_params_path
+    #It is a PRIVATE method: should not be called outside the class.
+    def __load_model(self, epoch, last_batch):
         self.epoch = epoch
         self.last_batch = last_batch
         
         model_path = self.model_params_path + "/epoch_" + str(self.epoch) + "_batch_" + str(self.last_batch) + ".pth"
         
-        
-        if torch.cuda.is_available():
-            diz = torch.load(model_path, map_location=self.device)
-        else:
-            diz = torch.load(model_path, map_location=self.device)
+        diz = torch.load(model_path, map_location=self.device)
+
         self.model.load_state_dict(diz['model_state_dict'])
         self.optimizer.load_state_dict = diz['optimizer_state_dict']
 
         self.lr_scheduler = torch.optim.lr_scheduler.LinearLR(self.optimizer,
                                                               start_factor=diz["lr_scheduler_state_dict"]["start_factor"],
                                                               total_iters=diz["lr_scheduler_state_dict"]["total_iters"])
+        #resume the learning scheduler state
         for i in range(0, diz["lr_scheduler_state_dict"]["last_epoch"]):
             self.lr_scheduler.step()
 
+        #resume the metric logger state
         self.metric_logger.meters = diz['metric_logger']['meters']
         self.metric_logger.iter_time = diz['metric_logger']['iter_time']
         self.metric_logger.data_time = diz['metric_logger']['data_time']
 
-        print(
-            f"Model loaded at epoch {self.epoch} and batch {self.last_batch}")
+        print(f"Model loaded at epoch {self.epoch} and batch {self.last_batch}")
 
-    def load_model_from_wandb(self, epoch, last_batch, entity, project_name):
+    #Loads the model called f"epoch_{epoch}_batch_{last_batch}.pth" from wandb, 
+    #with entity and project_name as parameters.
+    #It is a PRIVATE method: should not be called outside the class.
+    def __load_model_from_wandb(self, epoch, last_batch, entity, project_name):
+        #Download the model from wandb only if it is not already in the model_params_path
         if not os.path.exists(self.model_params_path + "/epoch_" + str(self.epoch) + "_batch_" + str(self.last_batch) + ".pth"):
             api = wandb.Api()
 
+            #Finds all runs avaible in the project
             runs = api.runs(entity + "/" + project_name)
-            run_id = next((run.id for run in runs if run.name ==
-                        ("Epoch_" + str(epoch))), None)
+            #Finds, if exists, the run with the name "Epoch_{epoch}", and obtains its id
+            run_id = next((run.id for run in runs if run.name ==("Epoch_" + str(epoch))), None)
             if run_id is None:
                 print("No run with this epoch found.")
                 return
 
+            #Download the model from wandb
             run = api.run(entity + "/" + project_name + "/" + run_id)
             file = run.file("epoch_" + str(epoch) + "_batch_" + str(last_batch) + ".pth")
             if file.size != 0:
@@ -355,9 +369,15 @@ class FasterModel:
             else:
                 return
 
-        self.load_model(epoch, last_batch)
+        #Once the model is downloaded, use the __load_model method to load it
+        self.__load_model(epoch, last_batch)
 
+    #Combine all the runs of the active project in a single run called "All Epochs".
+    #This run will contain all the losses of the single runs, and can be used to plot the losses in a single curve.
     def combine_all_epochs(self):
+        if not self.wandb_logging:
+            return
+        
         wandb_api = wandb.Api()
         cumulative_run = "All Epochs"
 
@@ -379,11 +399,12 @@ class FasterModel:
             print(f"Wandb: Deleting run {cumulative_run}")
             wandb_api.run(wandb_path + "/" + run_id).delete()
         
+        # Create the run
         print(f"Creating run {cumulative_run}")
         wandb.init(project=self.wandb_logging["wandb_project"], name=cumulative_run)
 
         losses = []
-        for i in range(0, len(runs)):
+        for i in range(0, len(runs)): #Put all losses in a single list
             run_id = next((run.id for run in runs if run.name == (
                                 "Epoch_" + str(i))), None)
             if (run_id is None):
@@ -394,18 +415,19 @@ class FasterModel:
             for d in lista:
                 losses.append(d["loss"])
 
-        for l in losses:
+        for l in losses: #Log all losses in the run
             wandb.log({"loss": l})
         wandb.finish()
     
-    #Se catIds non viene specificato, viene generata una metrica per 
-    #tutte le categorie. Se viene specificato un array di categorie,
-    #calcola le metriche per ognuna delle categorie. Se viene specificato
-    #"all" lo fa per tutte le categorie. 
+    #If catIds is None, evaluates the mean metrics on all the classes;
+    #If catIds is "all", evaluates the single metrics for each of the classes;
+    #If catIds is a list of integers, evaluates the single metrics for each of the classes 
+    #   with the specified ids.
+
+    #The code is a variation of the code avaible at this link: https://github.com/pytorch/vision/blob/main/references/detection/engine.py
     @torch.inference_mode()
     def evaluate(self, data_loader, catIds=None):
         n_threads = torch.get_num_threads()
-        # FIXME remove this and make paste_masks_in_image run on the GPU
         torch.set_num_threads(1)
         cpu_device = torch.device("cpu")
         self.model.eval()
@@ -414,20 +436,23 @@ class FasterModel:
 
         # Convert the dataset into a COCO dataset format
         coco = get_coco_api_from_dataset(data_loader.dataset)
-        iou_types = self._get_iou_types() #tipi di metriche supporate dal modello
+        iou_types = self._get_iou_types() #type of metrics supported by current model
 
+        
         coco_evaluator_list = []
+        #The first coco_evaluator will contain the mean metrics of all classes
         coco_evaluator_list.append(CocoEvaluator(coco, iou_types))
 
+        #Here are created as many coco_evaluator as the number of classes
         if catIds is not None:
             if catIds == "all":
-                catIds = [0, 1, 2, 3, 4, 5, 6]
+                catIds = list(range(0, len(str_label)))
             for i in range(0, len(catIds)):
                 coco_evaluator_list.append(CocoEvaluator(coco, iou_types))
                 coco_evaluator_list[i + 1].coco_eval['bbox'].params.catIds = [catIds[i]]
 
 
-        for images, targets in metric_logger.log_every(data_loader, 100, header):
+        for images, targets in metric_logger.log_every(data_loader, 5, header):
             images = list(img.to(self.device) for img in images)
 
             if torch.cuda.is_available():
@@ -450,7 +475,8 @@ class FasterModel:
             evaluator_time = time.time() - evaluator_time
             metric_logger.update(model_time=model_time,
                                  evaluator_time=evaluator_time)
-
+            
+            #Free Memory, important if using Gpu
             del images
             del targets
             torch.cuda.empty_cache()
@@ -461,45 +487,22 @@ class FasterModel:
         for coco_evaluator in coco_evaluator_list:
             coco_evaluator.synchronize_between_processes()
         
-        str_label = ["No Elmet", "Elmet", "Welding Mask",
-                     "Ear Protection", "No Gilet", "Gilet", "Person"]
         
         # accumulate predictions from all images
         for i, coco_evaluator in enumerate(coco_evaluator_list):
             if i != 0:
-                print(f"Metriche relative alla classe {str_label[catIds[i - 1]]}")
+                print(f"Metrics relative to the class {str_label[catIds[i - 1]]}")
             else:
-                print("Metriche relative a tutte le classi")
+                print("Mean metrics for all classes")
             coco_evaluator.accumulate()
             coco_evaluator.summarize()
             print("\n\n")
-
-
-
-        # [10, 101, 5, 4, 3]
-        # [T x R  x K xA xM]
-        # A = 4 tipi di aree
-        # M = 3 treshold max detections
-
-        # K = 5 tipi di categorie
-        # R = 101 recall thresholds for evaluation
-        # T = 10 IoU thresholds for evaluation
-
-        # idea: consideriamo coco_evaluator.coco_eval['bbox'].eval['precision']
-        # E' un numpy array di 5 dimensioni (vedi sopra)
-        # La terza dimensione rappresenta la classe
-        # Possiamo rendere -1 tutti i suoi elementi che non corrispondono alla classe
-        # che ci interessa, di questo modo possiamo chiamare co_evaluator.coco_eval['bbox'].summarize()
-        # che farà tutto come al solito, ma filtrerà gli elementi che non sono maggiori di -1
-
-
 
         torch.set_num_threads(n_threads)
         return coco_evaluator
 
     # Return a list containing all the types of IOU that are supported
-    # by the model. (In our case only bbox)
-
+    # by the model. (In our case it will return only bbox)
     def _get_iou_types(self):
         model_without_ddp = self.model
         if isinstance(self.model, torch.nn.parallel.DistributedDataParallel):
@@ -512,15 +515,18 @@ class FasterModel:
         print("IOU types: ", iou_types)
         return iou_types
 
+    #Shows the given image with it's predicted bounding boxes.
+    #image: a tensor on wich to apply the current model;
+    #treshold: the treshold to filter predictions that have a low score
+    #classes_to_show: list of integers. They are the classes that will be shown 
+    #return_fig: if True will return the fig object
+    #on the final image. In None all classes will be shown.
     @torch.inference_mode()
-    def apply_object_detection(self, image, treshold=0.5, classes_to_show=None):
-        str_label = ["No Elmet", "Elmet", "Welding Mask",
-                     "Ear Protection", "No Gilet", "Gilet", "Person"]
-        colors = ['red', 'blue', 'green',
-                  'orange', 'purple', 'pink', "brown"]
+    def apply_object_detection(self, image, treshold=0.5, classes_to_show=None, return_fig=False):
         self.model.eval()
         image = image.unsqueeze(0)
         
+        #apply the model, and obtain the predictions
         with torch.no_grad():
             predictions = self.model(image.clone().to(self.device))
         predictions = [{k: v.to(torch.device("cpu")) for k, v in t.items()}
@@ -533,10 +539,11 @@ class FasterModel:
         fig, ax = plt.subplots(1)
         ax.imshow(image[0].permute(1, 2, 0))
 
+        #Add each prediction to the final image
         for i, (l, bbox) in enumerate(zip(labels, boxes)):
             if scores[i] < treshold:
                 continue
-            if (classes_to_show is not None and str_label[l] not in classes_to_show):
+            if (classes_to_show is not None and l not in classes_to_show):
                 continue
             width = bbox[2] - bbox[0]
             height = bbox[3] - bbox[1]
@@ -547,8 +554,8 @@ class FasterModel:
             # Create a rectangle patch
             if (l < len(str_label)):
                 rect = patches.Rectangle(
-                    (x, y), width, height, linewidth=1, edgecolor=colors[l], facecolor="none")
-                ax.text(x, y - 10, str_label[l], color=colors[l])
+                    (x, y), width, height, linewidth=1, edgecolor=colors_bounding[l], facecolor="none")
+                ax.text(x, y - 10, str_label[l], color=colors_bounding[l])
             else:
                 rect = patches.Rectangle(
                     (x, y), width, height, linewidth=1, edgecolor="black", facecolor="none")
@@ -556,58 +563,9 @@ class FasterModel:
             # Add the rectangle to the axes
             ax.add_patch(rect)
 
-        # Show the plot
-        plt.show()
+        if return_fig:
+            return fig
+        else:
+            # Show the plot
+            plt.show()
 
-
-#  No Elmet   |Elmet   |Welding Mask   |Ear Protection   |No Gilet   |Gilet   |Person   |All Together
-#Real_on_real |        |               |                 |           |        |         |
-#  0.0        |0.708   |0.618          |0.648            |0.708      |0.846   |0.859    |0.627
-
-#Virt_on_real |        |               |                 |           |        |         |
-#Epoch 7      |        |               |                 |           |        |         |
-#  0.0        |0.758   |0.040          |0.462            |0.372      |0.680   |0.569    |0.411
-#Epoch 6      |        |               |                 |           |        |         |
-#  0.0        |0.741   |0.059          |0.505            |0.352      |0.675   |0.598    |0.419
-#Epoch 5      |        |               |                 |           |        |         |
-#  0.0        |0.736   |0.129          |0.469            |0.417      |0.673   |0.606    |0.433
-#Epoch 4      |        |               |                 |           |        |         |
-#  0.0        |0.073   |0.129          |0.445            |0.411      |0.631   |0.576    |0.412
-#Epoch 3      |        |               |                 |           |        |         |
-#  0.0        |0.734   |0.139          |0.597            |0.413      |0.669   |0.628    |0.454
-#Epoch 2      |        |               |                 |           |        |         |
-#  0.0        |0.776   |0.192          |0.523            |0.476      |0.700   |0.689    |0.480 Migliore
-#Epoch 1      |        |               |                 |           |        |         |
-#  0.0        |0.733   |0.195          |0.311            |0.461      |0.695   |0.721    |0.445
-
-
-#Virt_on_virt |        |               |                 |           |        |         |
-#Epoch 7      |        |               |                 |           |        |         |
-#  0.0        |0.973   |0.867          |0.981            |0.965      |0.963   |0.948    |0.814
-#Epoch 6      |        |               |                 |           |        |         |
-#  0.0        |0.974   |0.879          |0.982            |0.967      |0.976   |0.966    |0.821 Migliore
-#Epoch 5      |        |               |                 |           |        |         |
-#  0.0        |0.973   |0.861          |0.982            |0.957      |0.956   |0.946    |0.811
-#Epoch 4      |        |               |                 |           |        |         |
-#  0.0        |0.975   |0.871          |0.982            |0.966      |0.966   |0.954    |0.816
-#Epoch 3      |        |               |                 |           |        |         |
-#  0.0        |0.976   |0.855          |0.985            |0.964      |0.964   |0.956    |0.814
-#Epoch 2      |        |               |                 |           |        |         |
-#  0.0        |0.985   |0.884          |0.985            |0.966      |0.964   |0.955    |0.820
-#Epoch 1      |        |               |                 |           |        |         |
-#  0.0        |0.971   |0.825          |0.982            |0.969      |0.972   |0.962    |0.812
-
-
-#Virt_on_virt |        |               |                 |           |        |         |
-#Epoch 7      |        |               |                 |           |        |         |
-#  0.0        |0.973   |0.867          |0.981            |0.965      |0.963   |0.948    |0.814
-
-
-
-#epoch_0_batch_9800.pth
-#epoch_2_batch_0.pth
-#epoch_3_batch_0.pth
-#epoch_4_batch_0.pth
-#epoch_5_batch_0.pth
-#epoch_6_batch_0.pth
-#epoch_7_batch_0.pth

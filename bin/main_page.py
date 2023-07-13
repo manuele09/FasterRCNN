@@ -65,7 +65,7 @@ else:
 if (selected_epoch == best_epoch_list[0]):
     exit()
 
-load_dict = {"load_from_wandb": True,
+load_dict = {"load_from_wandb": False,
              "wandb_entity": "emacannizzo",
              "wandb_project": load_project,
             "epoch": load_epoch,

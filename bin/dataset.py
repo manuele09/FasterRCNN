@@ -1,6 +1,7 @@
 import torch
 from torch.utils.data.dataset import Dataset
 
+from constants import *
 from PIL import Image
 from os import path
 import numpy as np
@@ -41,6 +42,18 @@ def modify_list(list_file, n_dirs_to_mantain, new_root_path):
             new_list.append(file_name.strip())
     return new_list
 
+def read_list_from_file(path):
+    l = []
+    try:
+        with open(path, 'r') as file:
+            for row in file:
+                item = row.strip()  
+                l.append(item)
+    except FileNotFoundError:
+        print("File not found. Check the path.")
+    return l
+
+
 
 def find_path(name, path):
     for root, dirs, files in os.walk(path):
@@ -58,6 +71,7 @@ def scan_path(path):
 class RealDataset(Dataset):
 
     # return a dictionary with the following keys: "image", "target".
+    # Needs the index, the width and the height of the image. 
     def read_target_from_file(self, index, im_width, im_height):
         # bounding file format: x_center, y_center, width, height (all expressed in percentages)
         # bounding new format: x_min, y_min, x_max, y_max (expressed in the real image range)
@@ -67,10 +81,11 @@ class RealDataset(Dataset):
         target_path = change_extension(self.images_list[index], ".txt")
         with open(target_path, 'r') as file:
             for line in file:
-                # label     x_center  y_center  width     height
                 target_str = line.strip().split()
-                # target[0] target[1] target[2] target[3] target[4]
                 target = [float(x) for x in target_str]
+                #Here is the content of target:
+                # target[0] target[1] target[2] target[3] target[4]
+                # label     x_center  y_center  width     height
 
                 bbox = []
 
@@ -100,139 +115,80 @@ class RealDataset(Dataset):
 
         return target_dict
 
-    # images_root: path containg all the images
-    # image_list_path: path of the file containing the list of all the images name
-    
-    #aggiungere opzione se cancellare oppure no i vecchi dataset scaricati
-    def __init__(self, base_path, images_list=None, list_file_name=None,  transform=None, download_dataset=False):
+
+    #base_path: path of the directory that will contain the dataset
+    #list_file_name: name of the file that contains the list of images paths.
+    #   It must be inside the base_path directory.
+    #download_dataset: if True, the dataset will be downloaded. To choose the dataset to download,
+    #   set the list_file_name to one of this names: "train.virtual.txt", "valid.virtual.txt", "train.real.txt", "valid.real.txt".ù
+    #remove_unused_dataset: if True, all the directories that are not currently used by the 
+    # dataset will be removed, to save memory.
+    #transform: the transformation to apply to the images.
+    def __init__(self, base_path, list_file_name, download_dataset=False, remove_unused_dataset=True, transform=None):
         self.base_path = base_path
         self.download_dataset = download_dataset
-        self.images_list = images_list
+        self.remove_unused_dataset = remove_unused_dataset
         self.transform = transform
+        self.images_list = []
         
-        self.str_label = ["No Elmet", "Elmet", "Welding Mask",
-                          "Ear Protection", "No Gilet", "Gilet", "Person"]
-        self.colors = ['red', 'blue', 'green',
-                       'orange', 'purple', 'pink', "brown"]
-        # self.dirs_ids = {"train.virtual.txt": "ESRgAfYQkchGj4Hjfl_lZLMBoLNTrhkHwPJzYBGsrt4SeA",
-        #                  "valid.virtual.txt": "EXRzg_URR-ZEoYMpYH6W8R4BJWUVq4HMKZe-bvoq8ngUXw",
-        #                  "27_03_19_19_15_32": "EVujRKjyKSJDiQ_8b-46r7sBSoY7yMre_UiHVXy4W3c14w",
-        #                  "27_03_19_19_47_44": "EVTdTdDHT6FPkTAh-zK2JaoBQFNXpsHJfiKtOlxlga5dDQ",
-        #                  "27_03_19_20_16_23":  "EZnnM9VW7qxCpuOoMd3DD70BTxf3qTUSzSFo1ItAcpzvVQ",
-        #                  "27_03_19_20_43_51": "EbFMsp8MSwlDgXkS0EguZkwBhw5DCgi2nO3yTtjl426WMQ",
-        #                  "27_03_19_21_09_00": "EUTcg4dh9G1Ji1QSQ34MTIIBBavjnOQYRAA0RsEx_Z4VqA",
-        #                  "29_03_19_03_39_42": "ESDmLETIsShNlE2oEJI1D2QB2trOJCjWsJsc3O-dssu_ag",
-        #                  "29_03_19_04_06_35": "EdoGdVHUsLRJiMxh0a1VBBEBrYeC2eX0Elvs1Jhq_b2gmw",
-        #                  "29_03_19_04_34_54": "Ed4ZNXeY9a9HgY4T6MJJ7f0ByGK1EwbQmTxI8m6ijxDiBQ",
-        #                  "29_03_19_05_01_34": "Ee9SYf6BuCxJiCpNbdXMTxoBEVHGA66aSHfsdmS_leHswQ",
-        #                  "29_03_19_05_27_16": "Ed5KYH5YpX9BuS-5L4XDI9UBslYiXpRFs_UR8G_lBeQZzA",
-        #                  "29_03_19_05_51_06": "EUi2CAMAvChJhPgQ0WNZGSoBGkuF0RQtD-4JXkhdJgNrEg",
-        #                  "29_03_19_06_18_10": "EVnFqP7dx4VDnQ8XhiCa3W8B7VnESrnCYDghjrfGWU6xYQ",
-        #                  "29_03_19_06_49_23": "EZI6BtKNLKNPqvXrH1WV-yQBX8KE-aAYfxaYqAZwT2048A",
-        #                  "29_03_19_07_14_43": "EcrxUMpbayNLgMFvdH99rcQBCPedcn6QKavKeecMAPOGDA",
-        #                  "29_03_19_07_45_24": "ERFr_pA4MRRIiemPRdMcoJwBuRjXdg62UYsgm9NAR1dDOA",
-        #                  "29_03_19_08_12_28": "EWltsNr9UHdJsiC88YFQdmoB76AwtIFy6wea4oHZMRCNTw",
-        #                  "29_03_19_08_39_27": "EaQFe7l04HxMpqzaYsxxQdUBLAtAKfESjI5jHgOg8Yz8PQ",
-        #                  "29_03_19_09_05_50": "EZC6nbmQuz5OjFBKaTIoeRMBDSrtW6bNG-HNbB-F8DV3_Q",
-        #                  "29_03_19_11_23_30": "EdDkwmpyxRpBqyCRbW3_75ABg4rPucqeMs-3afhEkEE7fA",
-        #                  "29_03_19_11_48_52": "ERkF1A2H8NZPrIXx2EIZcyoBw10Q9k2QG2gIzvmMnxUXTA",
-        #                  "29_03_19_12_11_24": "Ec51v9AKNTRPo1DI-YFLkrwBZptCy3XcPG-zZXHGHPYwsA",
-        #                  "29_03_19_12_36_41": "ET5MAzxCLdRApgu-Yd4QSIsBIUIK2ZO1gc5VCgPpyC2hVw",
-        #                  "29_03_19_13_16_22": "Eb6aTsYREItFrJb0kcbIbYEBWNHdlihTP7GTKOdgXC18Hg",
-        #                  "29_03_19_13_40_24": "Ec8f5L291nBDkB6Z8XdbuZQB5fzAu9Rvb_3b0j8331ihNg",
-        #                  "29_03_19_14_05_16": "EW0WMufbzspGim2ktl1jRosBwgeVU351rGaNTe4uy4VgRw",
-        #                  "29_03_19_14_34_53": "EShJyt7_ELVOjxxmje0tYK8BImM7XYIlnLXaBZLm0f5iCQ",
-        #                  "29_03_19_15_07_02": "EfjQr--s7u1NrkA13UNBZisBk596wqeFYFAr9qshRuefsw",
-        #                  "29_03_19_15_39_29": "EXxy-jkcuLtHpR5vWX2y3ukBctruwvFqO9KNb2PshLSuow",
-        #                  "29_03_19_16_06_55": "EQ1oEyDMhs9Au2AtS9wyIU4BnWKFxAg6UJyL8oD8I-8y2w",
-        #                  "29_03_19_16_29_52": "EdKf-fzUaxxPk8wE_lykl2wBkec_JR4gjEtXpjdzuIl3Qw"}
-
-        self.datasets = []
-        self.virtual_dataset_train = {"train.virtual.txt": "ESRH0_-lm7BKr4jRUZRyhQgBlStl96JNnQ1mpKn2mhXw8g",                         
-                         "group_0": "ERf726zSyetKpEMBoCgER98BpjOC1DCFxG4JweGMckKRKA",
-                         "group_1": "EXJ8NAapu-1OpMtLrZHB2nYBeA4ihaj25MkqP7_X5cU0aQ",
-                         "group_2": "EYr2Vm3cTHVPn71sCXVYh-oB4kwfPLf3h92xksdRWSkl5A",
-                         "group_3": "ES3TDB2YyT5MrntnsXOb6lYBh9jsnYLrG1eCvsTC5H-_ZA",
-                         "group_4": "EQF1h-XDbpFIkbY85z-atTcBahhuLLh6m72qSkwIPqjSNQ",
-                         "group_5": "EbNIPDSnqmtGsOgEdZIG3CIBKuctGxA43hPaX4R4EmZP7A",
-                         "group_6": "EUHy3XNiFEZFpzjWxKyd6RQBy_iMstYTpId550fw4CBvHA",
-                         "group_7": "ERiFzJOn7hRFv8MiEXGRqqcBIkOIpgd9GKC0RRZfQZCUzw",
-                         "group_8": "EandlODyoGROn6CxM_luD1UBBmHnCL4QqG3Qz4IGxYffeQ",
-                         "group_9": "EROuH231Jg1AudGXiA4bSqUBsATbx7rACNtSHgC-o_rsGQ",
-                         "group_10": "EUT3kjz--2xIjA0DM-qe8OIBRAfnbFhBtxw4UWNfL8EElA",
-                         "group_11": "ERqlsvhQpYtJup8A-EVL3w0BnU591XnXHAo4yj360K7UGw",
-                         "group_12": "EetY8AztGlBFhlDKyj3kTuYB-g_HiDqUh8J5G7i_nsG7cQ",
-                         "group_13": "EeoWWxmf8yFMrfyKlz2JrfYBxK0jKp_VkJKb-eyNHPQ43Q",
-                         "group_14": "EUj7sdgMZ2hDvuagyX4AYqUBlA0uA8hm0FhUEMGHDIo-ZA",
-                         "group_15": "EfuGZjOJKLxOtgs1iJ8vyXABSwRkz8KCdO994NEYv48ypg",
-                         "group_16": "Ee2G-cGNgUBFr13PUZTOkKYB07REnEJDK8lC4Cnx_sQljg",
-                         "group_17": "EfaA32jOwR5IopCNiP_EH4kBGjUvViNgJ04fls6CS79EcQ",
-                         "group_18": "Eecun1vLi-VChu3tOFXjNAoBkTyvlMzieELscP9osdeUUg",
-                         "group_19": "ES4WnpNHHTxPrtsQvtHuqj8BKHJqzKJDmBY-In0ehWThDg"}
-        self.datasets.append(self.virtual_dataset_train)
-
-        self.virtual_dataset_valid = {"valid.virtual.txt": "ESV7PFigkP5EicRmdChtQdMBjBTonHCgEM0-OHhk4i3phQ",
-                         "group_20": "EZ2KJoTua-1LvaR74opw2YoB-G6OlNUPJKVFNPsKGp_X_g"}
-        self.datasets.append(self.virtual_dataset_valid)
-
-        self.real_dataset_train = {"train.real.txt": "EUG7D7Go-apBr9uT-BSQ3m0BA6in820suR6ZeQjM8D25MA",
-                                   "train": "EblpJ8WwjddEgGDCm49BNf0B8flwHM0jJqimCT0ovwpBAQ"}
-        self.datasets.append(self.real_dataset_train)
-
-        self.real_dataset_valid = {"valid.real.txt": "EduThXcR-TtJnKe_n0NQ5TQB1anZohLn93jYG-WsuH4Mag",
-                                   "valid": "EVHyT5P7QAFDljbnhNWlotQBEdnTPennUtvQisiitKl_Og"}
-        self.datasets.append(self.real_dataset_valid)
+        self.str_label = str_label
+        self.colors = colors_bounding
 
         if self.download_dataset:
-            if list_file_name is None:
-                print("Error: list_file_name is None")
-                return
-            
-            self.dirs_ids = None
+            #datasets will be a list of dictionaries, each one containing the 
+            #name of the zip file saved in the cloud and its unique id (needed to download it)
+            self.datasets = []
+            self.datasets.append(virtual_dataset_train)
+            self.datasets.append(virtual_dataset_valid)
+            self.datasets.append(real_dataset_train)
+            self.datasets.append(real_dataset_valid)
+
+            #Given the list_file_name, find wich of the 4 datasets contains it,
+            #and save it in choosen_dataset
+            self.choosen_dataset = None
             for dataset in self.datasets:
                 if list_file_name in dataset:
-                    self.dirs_ids = dataset
+                    self.choosen_dataset = dataset
                     break
-            if self.dirs_ids is None:
-                print("Error: list_file_name not found in self.datasets")
+            if self.choosen_dataset is None:
+                print(f"Error: The dataset corresponding to {list_file_name} was not found.")
                 return
         
-            # create the base_path if not exists, and download the list_file
+            # create the base_path if not exists
             if not os.path.exists(self.base_path):
                 print("Creating base_path")
                 os.makedirs(self.base_path)
+                #download the txt file that contains the list of images
                 self.download_and_extract(list_file_name, is_dir=False)
+
             # if the base_path exists but the list_file doesn't, download it
             if find_path(list_file_name, self.base_path) is None:
                 self.download_and_extract(list_file_name, is_dir=False)
 
-            # finds the list file path, modifies the relative paths in the list.
-            self.images_list = modify_list(
-                find_path(list_file_name, self.base_path), 1, self.base_path)
 
-            # it is the path that will contain all the folders of the virtual dataset: 27_03_19_19_15_32, 27_03_19_19_47_44, ...
-            self.full_path = os.path.join(
-                self.base_path, self.images_list[0].split(os.path.sep)[-4])
-            # usually it is base_path + "/dataset_1088x612"
-
+        # finds the list file path, modifies the relative paths in the list.
+        self.images_list = modify_list(find_path(list_file_name, self.base_path), 1, self.base_path)
         # Now we should have a complete images_list, that may be generated by the downloaded file
         # or given as input by the user
-        if self.images_list is None:
-            print("Error: images_list is None")
+
+        if len(self.images_list) == 0:
+            print("Error: images_list is void")
             return
+        #An original copy of the images_list is saved, because, if we change momentarily 
+        # the images_list we can restore it later (see skip_items())
         self.original_images_list = self.images_list.copy()
 
+    # Skip the first start_index items of the dataset. Useful to resume training from a checkpoint.
     def skip_items(self, start_index):
         self.images_list = self.original_images_list[start_index:]
         print(f"Skipping {start_index} items")
 
     # Downloads the file_name.zip from the shared link, extracts it in the base_path
     # and deletes the zip file to save space
-
     def download_and_extract(self, file_name, is_dir):
         # Download the zip
         print(f"Downloading {file_name}.zip ...")
-        file_id = self.dirs_ids[file_name]
+        file_id = self.choosen_dataset[file_name]
         out_path = os.path.join(self.base_path, file_name) + ".zip"
         download_url = f"https://studentiunict-my.sharepoint.com/:u:/g/personal/cnnmnl01r09m088w_studium_unict_it/{file_id}?download=1"
         command = f"wget --no-check-certificate -O {out_path} {download_url} > /dev/null 2>&1"
@@ -261,14 +217,17 @@ class RealDataset(Dataset):
         # Delete the zip
         os.remove(out_path)
 
+    #Returns the image and the target of the index-th element of the dataset.
+    #If the image or the target are corrupted, they are removed and the next element is returned.
+    #If the daset was downloaded, it will seemlessly download the next directory when needed.
+    #No further action is needed by the user.
     def __getitem__(self, index):
-        # Circular indexing to avoid index out of range
+        # To avoid index out of range (it is possible that some images are corrupted and removed)
         if (index >= len(self.images_list)):
-            # return None
-            return self.__getitem__(index % len(self.images_list))
+            return None
+            # return self.__getitem__(index % len(self.images_list))
 
         if self.download_dataset:
-
             # Find the directory that contains the image
             current_dir = self.images_list[index].split(os.path.sep)[-2]
 
@@ -278,9 +237,9 @@ class RealDataset(Dataset):
             current_dir_downloaded = False
             for i in range(len(self.downloaded_dirs)):
                 if os.path.basename(self.downloaded_dirs[i]) != current_dir:
-                    print(f"Removing {self.downloaded_dirs[i]}")
-                    # aggiungere opzione per non rimuovere
-                    shutil.rmtree(self.downloaded_dirs[i])
+                    if self.remove_unused_dataset:
+                        print(f"Removing {self.downloaded_dirs[i]}")
+                        shutil.rmtree(self.downloaded_dirs[i])
                 else:
                     current_dir_downloaded = True
 
@@ -292,8 +251,7 @@ class RealDataset(Dataset):
 
         try:
             im = Image.open(self.images_list[index]).convert('RGB')
-        # If the image is corrupted, delete it and return the next one
-        except Exception as e:
+        except Exception as e: # If the image is corrupted, delete it and return the next one
             print(" Exception caught: skipping dataset element.")
             print(f"Error reading image {self.images_list[index]}: {e}")
             del self.images_list[index]
@@ -303,11 +261,10 @@ class RealDataset(Dataset):
         if self.transform is not None:
             im = self.transform(im)
 
-
         # Same strategy as before if target is corrupted
         try:
-            target = self.read_target_from_file(
-                index, im.shape[2], im.shape[1])
+            #aquire the target from file
+            target = self.read_target_from_file(index, im.shape[2], im.shape[1])
             if target["boxes"].shape[0] == 0 or target["boxes"].shape[1] != 4:
                 raise Exception("Invalid box format.")
         except Exception as e:
@@ -320,8 +277,9 @@ class RealDataset(Dataset):
 
     def __len__(self):
         return len(self.images_list)
-
-    def show_bounding(self, index, classes_to_show=None): 
+    
+    #return_fig: if True will return the fig object
+    def show_bounding(self, index, classes_to_show=None, return_fig=False): 
         image, targets = self[index]
         self.label, self.bounding = targets["labels"], targets["boxes"]
 
@@ -347,8 +305,10 @@ class RealDataset(Dataset):
             ax.text(x, y - 10, self.str_label[l], color=self.colors[l])
             ax.axis('off')
 
-        # Show the plot
-        plt.show()
-        return fig
+        if return_fig:
+            return fig
+        else:
+            # Show the plot
+            plt.show()
     
-        image, targets = self[index]
+        
