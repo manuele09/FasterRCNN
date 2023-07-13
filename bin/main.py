@@ -39,50 +39,60 @@ dataset = RealDataset(image_base_path, list_file_name=list_file_name, download_d
 dataloader = DataLoader(dataset, batch_size=BATCH_SIZE, num_workers=NUM_WORKERS, collate_fn=collate_fn)
 
 #If you want to see the datasets image and bounding.
-dataset.show_bounding(0)
+# dataset.show_bounding(0)
 
 # #################### PARAMETERS ####################
-# load_pretrained_model = False #If True, load the model parameters
-# load_from_wandb = False #If True, load the model from wandb, else load from local
-# load_epoch = 0 #Epoch to load from
-# load_batch = 0 #Batch to load from
+load_pretrained_model = True #If True, load the model parameters
+load_from_wandb = True #If True, load the model from wandb, else load from local
+load_epoch = 20 #Epoch to load from
+load_batch = 0 #Batch to load from
+# load_model_name = "Virtual Dataset" #Model trained with Virtual Dataset
+# load_model_name = "Real Dataset" #Model trained with Real Dataset
+load_model_name = "Virtual Model on Real Dataset" #Model trained with Virtual Dataset and Real Dataset
 
-# resume_training = False #If True, resume training from a checkpoint
-# resume_batch = 0 #Batch to resume training from (checkpoint)
+resume_training = False #If True, resume training from a checkpoint
+resume_batch = 0 #Batch to resume training from (checkpoint)
 
-# log_to_wandb = False #If True, log the model parameters and loss to wandb
+log_to_wandb = False #If True, log the model parameters and loss to wandb
+project_log_wandb = "Virtual Dataset"
 
-# if load_pretrained_model:
-#   load_dict = {"load_from_wandb": load_from_wandb,
-#                "wandb_entity": "emacannizzo",
-#                "wandb_project": "Shuffled Virtual Dataset",
-#               "epoch": load_epoch,
-#               "batch": load_batch
-#                }
-# else:
-#   load_dict = None
+if load_pretrained_model:
+  load_dict = {"load_from_wandb": load_from_wandb,
+               "wandb_entity": "emacannizzo",
+               "wandb_project": load_model_name,
+              "epoch": load_epoch,
+              "batch": load_batch
+               }
+else:
+  load_dict = None
 
-# if resume_training:
-#   items_to_skip = resume_batch*BATCH_SIZE
-# else:
-#   items_to_skip = 0
+if resume_training:
+  items_to_skip = resume_batch*BATCH_SIZE
+else:
+  items_to_skip = 0
 
-# if log_to_wandb:
-#   wandb_dict = {"wandb_api_key": "e3f943e00cb1fa8a14fd0ea76ed9ee6d50f86f5b",
-#               "wandb_entity": "emacannizzo",
-#               "wandb_project": "Shuffled Virtual Dataset"}
-# else:
-#   wandb_dict = None
+if log_to_wandb:
+  wandb_dict = {"wandb_api_key": "e3f943e00cb1fa8a14fd0ea76ed9ee6d50f86f5b",
+              "wandb_entity": "emacannizzo",
+              "wandb_project": "Shuffled Virtual Dataset"}
+else:
+  wandb_dict = None
 # ####################################################
 
-# dataset.skip_items(items_to_skip)
-# model = FasterModel(dataloader, base_path, load_dict=load_dict)
+dataset.skip_items(items_to_skip)
+dataloader = DataLoader(dataset, batch_size=BATCH_SIZE, num_workers=NUM_WORKERS, collate_fn=collate_fn)
+model = FasterModel(dataloader, base_path, wandb_logging=wandb_dict, load_dict=load_dict)
+#In the case of model downloaded from wandb, if the download was interrupted, it is necessary
+#to manually delete the file before trying to run the code again.
 
-#model.train(print_freq=1, save_freq=1)
+scaler = torch.cuda.amp.GradScaler(enabled=False)
+# model.train(print_freq = 2, save_freq=None, scaler=scaler)
 
-# model.evaluate(dataloader)
+# model.evaluate(dataloader, catIds = "all")
 
+index = 0
+im, target = dataset[index]
+fig = dataset.show_bounding(index)
+model.apply_object_detection(im)
 
-# im, target = dataset[1]
-
-# model.apply_object_detection(im)
+plt.show()

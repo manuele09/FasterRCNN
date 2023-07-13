@@ -46,9 +46,9 @@ class FasterModel:
         #Defining the directories structure that will contain the logs
         self.data_loader = data_loader
         self.logging_base_path = logging_base_path + "/FasterRCNN_Logging"
+        self.model_params_path = self.logging_base_path + "/Model_parameters"
         self.tensorboard_logs_path = self.logging_base_path + "/Tensorboard_logs"
         self.tensorboard_logs_all_runs_path = self.tensorboard_logs_path + "/All_Epochs"
-        self.model_params_path = self.logging_base_path + "/Model_parameters"
 
         if not os.path.exists(self.logging_base_path):
             os.makedirs(self.logging_base_path)
@@ -345,7 +345,7 @@ class FasterModel:
     #It is a PRIVATE method: should not be called outside the class.
     def __load_model_from_wandb(self, epoch, last_batch, entity, project_name):
         #Download the model from wandb only if it is not already in the model_params_path
-        if not os.path.exists(self.model_params_path + "/epoch_" + str(self.epoch) + "_batch_" + str(self.last_batch) + ".pth"):
+        if not os.path.exists(self.model_params_path + "/epoch_" + str(epoch) + "_batch_" + str(last_batch) + ".pth"):
             api = wandb.Api()
 
             #Finds all runs avaible in the project
@@ -363,6 +363,7 @@ class FasterModel:
                 file.download(self.model_params_path, replace=True)
             else:
                 return
+        
 
         #Once the model is downloaded, use the __load_model method to load it
         self.__load_model(epoch, last_batch)
@@ -557,10 +558,13 @@ class FasterModel:
                 ax.text(x, y - 10, "Unknown", color="black")
             # Add the rectangle to the axes
             ax.add_patch(rect)
+            ax.axis('off')
+        ax.set_title("Prediction")
+
 
         if return_fig:
             return fig
         else:
             # Show the plot
-            plt.show()
+            plt.show(block=False)
 

@@ -222,8 +222,7 @@ class RealDataset(Dataset):
     def __getitem__(self, index):
         # To avoid index out of range (it is possible that some images are corrupted and removed)
         if (index >= len(self.images_list)):
-            return None
-            # return self.__getitem__(index % len(self.images_list))
+            return self.__getitem__(index % len(self.images_list))
 
         if self.download_dataset:
             # Find the directory that contains the image
@@ -303,10 +302,11 @@ class RealDataset(Dataset):
             ax.text(x, y - 10, self.str_label[l], color=self.colors[l])
             ax.axis('off')
 
+        ax.set_title("Ground Truth")
         if return_fig:
             return fig
         else:
             # Show the plot
-            plt.show()
+            plt.show(block=False)
     
         
