@@ -285,7 +285,7 @@ class RealDataset(Dataset):
         # ax.imshow(image)
 
         for l, bbox in zip(self.label, self.bounding):
-            if classes_to_show is not None and self.str_label[l] not in classes_to_show:
+            if classes_to_show is not None and l not in classes_to_show:
                 continue
             width = bbox[2] - bbox[0]
             height = bbox[3] - bbox[1]
