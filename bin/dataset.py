@@ -177,13 +177,19 @@ class RealDataset(Dataset):
     # File name is only the key in self.choosen_dataset, it is not necesserary how the
     #   file is called in the cloud
     #is_dir: boolean. If the zip to download contains a directory or a file.
-    def download_and_extract(self, file_name, is_dir):
+    #show_progress: boolean. If True show the default progress bar created by wget.
+    #Can be useful to make it False in a notebook, because each update of the progress bar
+    #will be printed in a new line.
+    def download_and_extract(self, file_name, is_dir, show_progress=True):
         # Download the zip
         print(f"Downloading {file_name}.zip ...")
         file_id = self.choosen_dataset[file_name]
         out_path = os.path.join(self.base_path, file_name) + ".zip"
         download_url = f"https://studentiunict-my.sharepoint.com/:u:/g/personal/cnnmnl01r09m088w_studium_unict_it/{file_id}?download=1"
-        command = f"wget --no-check-certificate -O {out_path} {download_url} > /dev/null 2>&1"
+        if show_progress:
+            command = f"wget --no-check-certificate -O {out_path} {download_url}"
+        else:
+            command = f"wget --no-check-certificate -O {out_path} {download_url} > /dev/null 2>&1"
         
         while(True):
             try:
